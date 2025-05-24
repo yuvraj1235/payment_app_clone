@@ -3,11 +3,6 @@ import { createStackNavigator } from "@react-navigation/stack"
 import Home from "./Home";
 import index from "./index";
 
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-GoogleSignin.configure({
-  webClientId: '117652753991-ft7ta0356tqh9snqjcpuig2kb51r3cbv.apps.googleusercontent.com',
-});
-
 const Stack = createStackNavigator();
 
 export default function RootLayout() {

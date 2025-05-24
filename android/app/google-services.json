@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "117652753991",
+    "project_id": "gpay-f34b3",
+    "storage_bucket": "gpay-f34b3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:117652753991:android:d4674790913901f108ab62",
+        "android_client_info": {
+          "package_name": "com.yubrajsau.Gpay"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "117652753991-h3fantlgpblfagu64hll7gk95dt7b61h.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.yubrajsau.Gpay",
+            "certificate_hash": "964102c7067fa0b97efe8c6d04be4b6f93c89849"
+          }
+        },
+        {
+          "client_id": "117652753991-fvpqf8eneovuahi01fk15edrutobmq9e.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJO6lCi-JMJePZQykQoFwvK-CT-L5eE3s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "117652753991-fvpqf8eneovuahi01fk15edrutobmq9e.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
