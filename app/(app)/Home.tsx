@@ -56,6 +56,13 @@ const Home = () => {
   return (
     <ImageBackground source={require('../../assets/images/background.jpg')} resizeMode="cover" style={styles.imageBackground}>
       {/* Header content */}
+     <ScrollView
+          ref={scrollViewRef}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={styles.scrollViewContent}
+          style={styles.scrollViewStyle}
+        >
       <TouchableOpacity onPress={() => console.log('Profile icon pressed')} >
         <Image style={styles.profileIcon} source={require('../../assets/images/google.png')} />
       </TouchableOpacity>
@@ -69,17 +76,10 @@ const Home = () => {
 
       {/* This is the container for the scrollable content */}
       <View style={styles.contentAndCameraWrapper}>
-        <ScrollView
-          ref={scrollViewRef}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          contentContainerStyle={styles.scrollViewContent}
-          style={styles.scrollViewStyle}
-        >
+        
           {/* A dummy view to push down the content and allow scrolling */}
-          <View style={{ height: 250, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' }}>
-            {/* This space is where the camera will appear when scrolled down */}
-            <Text style={styles.text}>Scroll past this area to activate camera</Text>
+          <View style={{  justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' }}>
+    
           </View>
 
           {/* Your actual scrollable icons and content */}
@@ -119,7 +119,7 @@ const Home = () => {
               <Text style={styles.text}>Keep scrolling to test camera activation!</Text>
             </View>
           </View>
-        </ScrollView>
+      
 
         {/* Show Camera when scrolled down, positioned absolutely over the contentAndCameraWrapper */}
         {isCameraOpen && (
@@ -141,7 +141,9 @@ const Home = () => {
           </CameraView>
         )}
       </View>
+      </ScrollView> 
     </ImageBackground>
+     
   );
 };
 
@@ -174,7 +176,8 @@ const styles = StyleSheet.create({
     borderColor: '#290551',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    overflow: 'hidden', // Ensures border radius clips content including the camera
+    overflow: 'hidden', 
+    marginTop:200// Ensures border radius clips content including the camera
   },
   scrollViewStyle: {
     flex: 1, // Allows ScrollView to take all available space within its parent
