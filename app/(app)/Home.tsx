@@ -27,6 +27,11 @@ const Home = () => {
       </View>
     );
   }
+ const handleScrollToBottom = () => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: true });
+    }
+  };
 
   const handleScroll = (event) => {
     const contentOffsetY = event.nativeEvent.contentOffset.y;
@@ -34,7 +39,11 @@ const Home = () => {
     // The threshold should be relative to the scrollable content.
     // Let's say we want it to open after scrolling past the initial blue section.
     const cameraOpenThreshold = 100; // Adjust as needed
+    if(contentOffsetY > cameraOpenThreshold){
+      
+    }
     if (contentOffsetY > cameraOpenThreshold && !isCameraOpen) {
+      
       setIsCameraOpen(true);
     }
     // Close camera if scrolled back up above the threshold
@@ -85,7 +94,7 @@ const Home = () => {
           {/* Your actual scrollable icons and content */}
           <View style={styles.scrollableSection}>
             <View style={styles.iconRow}>
-              <TouchableOpacity style={styles.iconButton} onPress={() => console.log('Scan pressed')}>
+              <TouchableOpacity style={styles.iconButton} onPress={handleScrollToBottom}>
                 <MaterialIcons name='qr-code-scanner' size={70}
                   color="#ccc"
                   style={styles.icon} />
