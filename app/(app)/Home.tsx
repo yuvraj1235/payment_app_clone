@@ -77,7 +77,7 @@ const Home = () => {
       </TouchableOpacity>
 
       <View style={{ alignItems: 'center', marginBottom: 20 }}>
-        <Text style={styles.headingText}>SCROLL DOWN TO SCAN</Text>
+        <Text style={styles.headingText}>SCROLL UP TO SCAN</Text>
         <MaterialIcons name='keyboard-double-arrow-down' size={70}
           color="#ccc"
           style={{ paddingHorizontal: 10 }} />
@@ -92,7 +92,7 @@ const Home = () => {
           </View>
 
           {/* Your actual scrollable icons and content */}
-          <View style={styles.scrollableSection}>
+          <ImageBackground source={require('../../assets/images/scroll.jpg')} resizeMode='stretch' style={styles.imageBackground}>
             <View style={styles.iconRow}>
               <TouchableOpacity style={styles.iconButton} onPress={handleScrollToBottom}>
                 <MaterialIcons name='qr-code-scanner' size={70}
@@ -127,7 +127,7 @@ const Home = () => {
               <Text style={styles.text}>More content below the icons to allow more scrolling.</Text>
               <Text style={styles.text}>Keep scrolling to test camera activation!</Text>
             </View>
-          </View>
+          </ImageBackground>
       
 
         {/* Show Camera when scrolled down, positioned absolutely over the contentAndCameraWrapper */}
@@ -194,7 +194,8 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     // This style applies to the content *inside* the ScrollView
-    paddingBottom: 20, // To give some space at the bottom of the scrollable content
+    paddingBottom: 20,
+   // To give some space at the bottom of the scrollable content
   },
   scrollableSection: {
     flexDirection: 'column',
