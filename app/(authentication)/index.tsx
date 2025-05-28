@@ -75,8 +75,8 @@ const index = () => { // Changed back to 'index'
         </View>
       )}
 
-      <Text style={styles.heading}>WELCOME</Text>
-      <Text style={styles.heading}>BACK!</Text>
+      <Text style={styles.heading}>Welcome</Text>
+      <Text style={styles.heading}>back!</Text>
 
       <TextInput
         style={styles.inputbox}
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     padding: 10,
     color: '#e1e3ea',
     marginTop: 20,
-    backgroundColor: '#434242',
+    backgroundColor: '#0e0599',
     fontSize: 20,
     borderRadius: 10,
     elevation: 10,
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#434242',
+    backgroundColor: '#0e0599',
     borderRadius: 10,
     marginTop: 20,
     paddingHorizontal: 10,
@@ -188,15 +188,6 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     elevation: 5,
-  },
-  googleButton: {
-    flexDirection: 'row',
-    backgroundColor: '#343436',
-    margin: 10,
-    padding: 5,
-    borderRadius: 100,
-    alignSelf: 'center',
-    alignItems: 'center',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject, // Covers the entire screen

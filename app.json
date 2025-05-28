@@ -32,7 +32,12 @@
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "@react-native-firebase/crashlytics",
-      
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow $(PRODUCT_NAME) to access your contacts."
+        }
+      ],
       ["expo-camera",
         {
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",

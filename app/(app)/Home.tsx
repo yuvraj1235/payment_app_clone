@@ -72,7 +72,7 @@ const Home = () => {
           contentContainerStyle={styles.scrollViewContent}
           style={styles.scrollViewStyle}
         >
-      <TouchableOpacity onPress={() => console.log('Profile icon pressed')} >
+      <TouchableOpacity onPress={() => navigation.navigate('mypage')} >
         <Image style={styles.profileIcon} source={require('../../assets/images/google.png')} />
       </TouchableOpacity>
 
