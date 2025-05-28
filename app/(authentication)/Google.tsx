@@ -13,10 +13,9 @@ import {
 // Correct way to import auth from @react-native-firebase
 import auth from '@react-native-firebase/auth';
 import { useNavigation } from '@react-navigation/native';
-import AntDesignIcon from 'react-native-vector-icons/AntDesign';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 GoogleSignin.configure({
-  webClientId: '117652753991-ft7ta0356tqh9snqjcpuig2kb51r3cbv.apps.googleusercontent.com',
+  webClientId: process.env.WEB_CLIENT_ID,
 });
 
 

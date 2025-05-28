@@ -16,9 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import AntDesignIcon from 'react-native-vector-icons/AntDesign';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Google from './Google';
-GoogleSignin.configure({
-  webClientId: '117652753991-ft7ta0356tqh9snqjcpuig2kb51r3cbv.apps.googleusercontent.com',
-});
+
 
 const index = () => { // Changed back to 'index'
   const navigation = useNavigation();
