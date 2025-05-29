@@ -2,10 +2,6 @@ import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
-GoogleSignin.configure({
-  webClientId: '117652753991-ft7ta0356tqh9snqjcpuig2kb51r3cbv.apps.googleusercontent.com',
-});
-
 
 
 export default function RootLayout() {
