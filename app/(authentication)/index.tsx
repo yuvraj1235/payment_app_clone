@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   },
   inputbox: {
     padding: 10,
-    color: '#e1e3ea',
+    color: 'white',
     marginTop: 20,
     backgroundColor: '#0e0599',
     fontSize: 20,

@@ -3,9 +3,11 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 
-
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID,
+});
 export default function RootLayout() {
- const [initializing, setInitializing] = useState(true);
+  const [initializing, setInitializing] = useState(true);
   const [user, setUser] = useState();
 
   // Handle user state changes
@@ -21,15 +23,15 @@ export default function RootLayout() {
 
   if (initializing) return null;
   return (
- <Stack>
+    <Stack>
       <Stack.Protected guard={user}>
-        <Stack.Screen name="(app)"  options={{headerShown:false}}/>
+        <Stack.Screen name="(app)" options={{ headerShown: false }} />
       </Stack.Protected>
 
       <Stack.Protected guard={!user}>
-        <Stack.Screen name="(authentication)" options={{headerShown:false}}/>
+        <Stack.Screen name="(authentication)" options={{ headerShown: false }} />
       </Stack.Protected>
     </Stack>
-   
+
   )
 }
