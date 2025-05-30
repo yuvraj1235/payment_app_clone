@@ -109,7 +109,7 @@ const Home = () => {
           <TextInput style={styles.searchText} placeholder='Search by contacts, bills'/>
         </View>
         <TouchableOpacity onPress={() => navigation.navigate('mypage')}>
-          <Image style={styles.profileIcon} source={require('../../assets/images/google.png')} />
+          <MaterialIcons name="person" size={40} color="#888" style={styles.profileIcon} />
         </TouchableOpacity>
       </View>
 
@@ -208,27 +208,6 @@ const Home = () => {
         <View style={{ height: 100 }} /> {/* Spacer at the bottom */}
       </ScrollView>
 
-      {/* Fixed Bottom Navigation (Example) */}
-      {/* Note: In a real app, you might use Expo Router's Tabs for this,
-          but this works as a simple fixed bottom nav. */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
-          <MaterialIcons name="account-balance" size={24} color="#66d9ef" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <MaterialIcons name="check-box" size={24} color="#888" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <MaterialIcons name="history" size={24} color="#888" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('mypage')}>
-          <MaterialIcons name="account-circle" size={24} color="#888" />
-        </TouchableOpacity>
-        {/* Logout button can be integrated into the bottom nav or elsewhere */}
-        <TouchableOpacity style={styles.navItem} onPress={handleLogout}>
-          <MaterialIcons name="logout" size={24} color="#B22222" />
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };
@@ -280,9 +259,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   profileIcon: {
-    borderRadius: 20, // Smaller for the top-right
     height: 40,
     width: 40,
+    color:'white'
   },
   balanceContainer: {
     flexDirection: 'column',
