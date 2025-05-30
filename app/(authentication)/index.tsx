@@ -18,26 +18,26 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Google from './Google';
 
 
-const index = () => { // Changed back to 'index'
+const index = () => { 
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false); // New loading state
-  const loginUser = async () => { // Made async to use await
+  const [loading, setLoading] = useState(false); 
+  const loginUser = async () => {
     if (!email || !password) {
       Alert.alert('Missing Fields', 'Please enter both email and password.');
       return;
     }
 
-    setLoading(true); // Start loading
+    setLoading(true); 
     try {
       const response = await auth().signInWithEmailAndPassword(email, password);
       Alert.alert('Success', 'Logged in successfully!');
       console.log('User logged in:', response.user.email);
      
     } catch (error) {
-      console.error('Email/Password Login Error:', error); // Log the full error
+      console.error('Email/Password Login Error:', error); 
       let errorMessage = 'An unexpected error occurred. Please try again.';
       switch (error.code) {
         case 'auth/wrong-password':
@@ -49,15 +49,15 @@ const index = () => { // Changed back to 'index'
         case 'auth/invalid-email':
           errorMessage = 'The email address is invalid.';
           break;
-        case 'auth/invalid-credential': // Firebase v9 often uses this for general credential issues
+        case 'auth/invalid-credential': 
           errorMessage = 'Invalid credentials. Please check your email and password.';
           break;
         default:
-          errorMessage = error.message; // Fallback to Firebase's message
+          errorMessage = error.message;
       }
       Alert.alert('Login Failed', errorMessage);
     } finally {
-      setLoading(false); // Stop loading
+      setLoading(false);
     }
   };
 
@@ -84,7 +84,7 @@ const index = () => { // Changed back to 'index'
         keyboardType="email-address"
         autoCapitalize="none"
         placeholderTextColor="#ccc"
-        editable={!loading} // Disable input while loading
+        editable={!loading} 
       />
 
       <View style={styles.passwordContainer}>
@@ -95,7 +95,7 @@ const index = () => { // Changed back to 'index'
           onChangeText={setPassword}
           secureTextEntry={!showPassword}
           placeholderTextColor="#ccc"
-          editable={!loading} // Disable input while loading
+          editable={!loading} 
         />
         <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={loading}>
           <AntDesignIcon
@@ -201,4 +201,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default index; // Changed back to 'index' for export
+export default index; 

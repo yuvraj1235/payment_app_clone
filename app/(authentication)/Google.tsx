@@ -8,12 +8,12 @@ import {
   Alert,
   Image,
   ActivityIndicator,
-  ImageBackground, // Import ActivityIndicator for loading state
 } from 'react-native';
-// Correct way to import auth from @react-native-firebase
+
 import auth from '@react-native-firebase/auth';
 import { useNavigation } from '@react-navigation/native';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import firestore from '@react-native-firebase/firestore';
 GoogleSignin.configure({
   webClientId: process.env.WEB_CLIENT_ID,
 });
@@ -25,41 +25,43 @@ const Google = () => {
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false); // New loading state
+  const [loading, setLoading] = useState(false);
 
   const onGoogleButtonPress = async () => {
-    setLoading(true); // Start loading
+    setLoading(true); 
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const signInResult = await GoogleSignin.signIn(); // Get the full result object
+      const signInResult = await GoogleSignin.signIn(); 
 
       let idToken;
-      // Try the new style (v13+), then fallback to older styles
-      if (signInResult.idToken) { // This handles most common cases (direct property)
+      if (signInResult.idToken) {
         idToken = signInResult.idToken;
-      } else if (signInResult.user && signInResult.user.idToken) { // Sometimes nested under 'user' (older older)
+      } else if (signInResult.user && signInResult.user.idToken) {
         idToken = signInResult.user.idToken;
-      } else if (signInResult.data && signInResult.data.idToken) { // For the specific 'data' property
+      } else if (signInResult.data && signInResult.data.idToken) { 
         idToken = signInResult.data.idToken;
       }
 
 
       if (!idToken) {
-        // If after all attempts, no ID token is found, throw an error
+       
         throw new Error('Google Sign-In failed: No ID token found after sign-in.');
       }
 
-      // Create a Firebase credential with the Google ID token
-      // Ensure GoogleAuthProvider is imported or correctly referenced
-      const googleCredential = auth.GoogleAuthProvider.credential(idToken); // Use the extracted idToken
-
-      // Sign in to Firebase with the Google credential
+      const googleCredential = auth.GoogleAuthProvider.credential(idToken); 
       const userSignIn = await auth().signInWithCredential(googleCredential);
+      const user = userSignIn.user;
+       return firestore()
+          .collection('users')
+          .doc(user.uid)
+          .set({
+            email: user.email,
+            username: user.displayName,
+            createdAt: firestore.FieldValue.serverTimestamp(),
+            
+          });
       console.log(userSignIn.user.displayName);
-
-      Alert.alert('Success', 'Signed in with Google!');
-      console.log('User signed in with Google:', userSignIn.user.email);
-  
+      
 
     } catch (rawError) {
       console.error('*** RAW Google Sign-In Error Caught:', rawError);

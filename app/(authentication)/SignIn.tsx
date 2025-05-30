@@ -43,7 +43,7 @@ const SignIn = () => {
       })
       .then(() => {
         console.log('User data saved!');
-        navigation.navigate('Login');
+        //navigation.navigate('Login');
       })
       .catch(error => {
         if (error.code === 'auth/email-already-in-use') {
