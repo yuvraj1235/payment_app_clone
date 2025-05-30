@@ -1,41 +1,48 @@
-import { createStackNavigator } from "@react-navigation/stack"
-import Home from "./Home";
-import mypage from "./mypage";
-import Pay_contact from "./Pay_contact";
-import Camera from "./Camera";
-import Contact from "./Contact";
+// app/_layout.js
+import { Stack } from 'expo-router';
+import React from 'react';
 
-const _layout = () => {
-    const Stack=createStackNavigator();
+const RootLayout = () => {
   return (
-   <Stack.Navigator initialRouteName="Home">
-   
+    <Stack>
+      
       <Stack.Screen
-        name="Home"
-        component={Home}
-        options={{ headerShown: false }} />
-    
+        name="index" // Assuming your Login screen is app/index.js
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
-        name="mypage"
-        component={mypage}
-        options={{ headerShown: false }} />
-    <Stack.Screen
-        name="Contact"
-        component={Pay_contact}
-        options={{ headerShown: false }} />
-          <Stack.Screen
-        name="Camera"
-        component={Camera}
-        options={{ headerShown: false }} />
-           <Stack.Screen
-        name="Contac"
-        component={Contact}
-        options={{ headerShown: false }} />
-    </Stack.Navigator>
-  
-    
+        name="Login" // Assuming you have an app/Login.js for manual navigation
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="SignIn" // Assuming you have an app/SignIn.js
+        options={{ headerShown: false }}
+      />
 
-  )
-}
+      {/* Main App Screens - generally shown after authentication */}
+      <Stack.Screen
+        name="Home" // Corresponds to app/Home.js
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="mypage" // Corresponds to app/mypage.js
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Pay_contact" // Corresponds to app/Pay_contact.js
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Camera" // Corresponds to app/Camera.js
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Contact" // Corresponds to app/Contact.js
+        options={{ headerShown: false }}
+      />
+      {/* Add other main app screens here as needed */}
+    </Stack>
+  );
+};
 
-export default _layout
+export default RootLayout;

@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import {
-  View,
+  View, // Changed from ImageBackground
   Text,
   TouchableOpacity,
   TextInput,
   StyleSheet,
   Alert,
-  Image,
-  ImageBackground
+  // Removed ImageBackground import
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AntDesignIcon from 'react-native-vector-icons/AntDesign';
@@ -31,7 +30,6 @@ const SignIn = () => {
       .then(userCredential => {
         const user = userCredential.user;
 
-        // Save username to Firestore
         return firestore()
           .collection('users')
           .doc(user.uid)
@@ -43,13 +41,15 @@ const SignIn = () => {
       })
       .then(() => {
         console.log('User data saved!');
-        //navigation.navigate('Login');
+        navigation.navigate('Login');
       })
       .catch(error => {
         if (error.code === 'auth/email-already-in-use') {
           Alert.alert('Error', 'Email is already in use');
         } else if (error.code === 'auth/invalid-email') {
           Alert.alert('Error', 'Invalid email address');
+        } else if (error.code === 'auth/weak-password') {
+            Alert.alert('Error', 'Password should be at least 6 characters');
         } else {
           Alert.alert('Error', error.message);
         }
@@ -58,126 +58,151 @@ const SignIn = () => {
   };
 
   return (
-    <ImageBackground source={require('../../assets/images/background.jpg')} resizeMode="cover" style={styles.image}>
-      <Text style={styles.heading}>Create your</Text>
-      <Text style={styles.heading}>account</Text>
+    // Changed from ImageBackground to View, applying background color directly
+    <View style={styles.container}>
+      <View style={styles.contentContainer}>
+        <Text style={styles.heading}>Create your</Text>
+        <Text style={styles.heading}>account</Text>
 
-      <TextInput
-        style={styles.inputbox}
-        placeholder="Username"
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-        placeholderTextColor="#ccc"
-      />
-
-      <TextInput
-        style={styles.inputbox}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        placeholderTextColor="#ccc"
-      />
-
-      <View style={styles.passwordContainer}>
         <TextInput
-          style={{ flex: 1, fontSize: 20, color: '#fff' }}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
-          placeholderTextColor="#ccc"
+          style={styles.inputBox}
+          placeholder="Username"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+          placeholderTextColor="#888"
         />
-        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-          <AntDesignIcon
-            name={showPassword ? 'eye' : 'eyeo'}
-            size={24}
-            color="#ccc"
-            style={{ paddingHorizontal: 10 }}
+
+        <TextInput
+          style={styles.inputBox}
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          placeholderTextColor="#888"
+        />
+
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            placeholderTextColor="#888"
           />
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <AntDesignIcon
+              name={showPassword ? 'eye' : 'eyeo'}
+              size={22}
+              color="#888"
+              style={styles.eyeIcon}
+            />
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.actionRow}>
-        <TouchableOpacity style={styles.button} onPress={handleSignUp}>
-          <AntDesignIcon name="arrowright" size={30} color="white" />
-        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.button} onPress={handleSignUp}>
+            <AntDesignIcon name="arrowright" size={26} color="#000" />
+          </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.sign}>Already have an account? Log in</Text>
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <Text style={styles.loginText}>Already have an account? Log in</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </ImageBackground>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  // New container style for the main background color
   container: {
     flex: 1,
-    backgroundColor: '#1c1d1e',
-    paddingTop: 50,
-    padding: 20,
+    backgroundColor: '#1E1E1E', // Solid dark background
+    justifyContent: 'center', // Center content vertically
+    alignItems: 'center', // Center content horizontally
+    paddingTop: 50, // Keep some top padding if needed, or remove if contentContainer handles it
+  },
+  contentContainer: {
+    width: '90%',
+    maxWidth: 400,
+    padding: 25,
+    borderRadius: 20,
+    backgroundColor: '#282828', // Slightly lighter dark for the card background
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 15,
   },
   heading: {
-    fontSize: 50,
-    color: 'white',
-    fontWeight: 'bold',
-    marginBottom: 10,
+    fontSize: 42,
+    color: '#E0E0E0',
+    fontWeight: '700',
+    marginBottom: 5,
+    textAlign: 'left',
+    fontFamily: 'System',
   },
-  inputbox: {
-    padding: 10,
-    color: 'white',
-    marginTop: 20,
-    backgroundColor: '#0e0599',
-    fontSize: 20,
-    borderRadius: 10,
-    elevation: 10,
-    width: '100%',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  sign: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#f09819',
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 50,
-    height: 50,
-    elevation: 5,
-  },
-  googleButton: {
-    flexDirection: 'row',
-    backgroundColor: '#343436',
-    margin: 10,
-    padding: 5,
-    borderRadius: 100,
-    alignSelf: 'center',
-    alignItems: 'center',
+  inputBox: {
+    height: 55,
+    paddingHorizontal: 18,
+    color: '#E0E0E0',
+    marginTop: 25,
+    backgroundColor: '#3a3a3a',
+    fontSize: 18,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#4a4a4a',
+    fontFamily: 'System',
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0e0599',
-    borderRadius: 10,
-    marginTop: 20,
-    paddingHorizontal: 10,
-    elevation: 10,
-  }, image: {
+    backgroundColor: '#3a3a3a',
+    borderRadius: 12,
+    marginTop: 15,
+    paddingHorizontal: 18,
+    height: 55,
+    borderWidth: 1,
+    borderColor: '#4a4a4a',
+  },
+  passwordInput: {
     flex: 1,
-    paddingTop: 50,
-    padding: 20,
+    fontSize: 18,
+    color: '#E0E0E0',
+    fontFamily: 'System',
+  },
+  eyeIcon: {
+    paddingLeft: 10,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 30,
+    paddingHorizontal: 5,
+  },
+  loginText: {
+    color: '#75B6E4',
+    fontWeight: '600',
+    fontSize: 15,
+    textDecorationLine: 'none',
+    fontFamily: 'System',
+  },
+  button: {
+    backgroundColor: '#66d9ef',
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 60,
+    height: 60,
+    shadowColor: '#66d9ef',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
   },
 });
 

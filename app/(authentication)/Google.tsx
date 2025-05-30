@@ -135,7 +135,7 @@ export default Google
 const styles = StyleSheet.create({
   googleButton: {
     flexDirection: 'row',
-    backgroundColor: '#043687',
+    // backgroundColor: '#043687',
     margin: 10,
     padding: 5,
     borderRadius: 100,
