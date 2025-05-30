@@ -40,6 +40,10 @@ const RootLayout = () => {
         name="Contact" // Corresponds to app/Contact.js
         options={{ headerShown: false }}
       />
+       <Stack.Screen
+        name="Payment" // Corresponds to app/Contact.js
+        options={{ headerShown: false }}
+      />
       {/* Add other main app screens here as needed */}
     </Stack>
   );

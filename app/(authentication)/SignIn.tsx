@@ -1,14 +1,14 @@
+// app/SignIn.js
 import React, { useState } from 'react';
 import {
-  View, // Changed from ImageBackground
+  View,
   Text,
   TouchableOpacity,
   TextInput,
   StyleSheet,
   Alert,
-  // Removed ImageBackground import
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from 'expo-router'; // CORRECTED: Import useNavigation from expo-router
 import AntDesignIcon from 'react-native-vector-icons/AntDesign';
 import { getAuth, createUserWithEmailAndPassword } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
@@ -30,18 +30,28 @@ const SignIn = () => {
       .then(userCredential => {
         const user = userCredential.user;
 
+        // Use .set() with { merge: true } to preserve existing fields like 'balance'
         return firestore()
           .collection('users')
           .doc(user.uid)
-          .set({
-            email: email,
-            username: username,
-            createdAt: firestore.FieldValue.serverTimestamp(),
-          });
+          .set(
+            {
+              email: email,
+              username: username,
+              createdAt: firestore.FieldValue.serverTimestamp(),
+              // You might want to initialize balance for a NEW user here if it's always 0
+              // For existing users, merge:true will preserve it.
+              // For new users, if balance doesn't exist, it will be added as 0.
+               balance: firestore.FieldValue.increment(0), // Initialize balance for new sign-ups
+            },
+            { merge: true } // <-- THIS IS THE KEY CHANGE
+          );
       })
       .then(() => {
-        console.log('User data saved!');
-        navigation.navigate('Login');
+        console.log('User data saved/merged!');
+        // After successful sign-up and data creation, navigate them to the main app or login
+        // It's often good practice to replace the stack after a successful auth flow
+        navigation.replace('Home'); // Or navigate('Login') if you want them to explicitly log in
       })
       .catch(error => {
         if (error.code === 'auth/email-already-in-use') {
@@ -58,7 +68,6 @@ const SignIn = () => {
   };
 
   return (
-    // Changed from ImageBackground to View, applying background color directly
     <View style={styles.container}>
       <View style={styles.contentContainer}>
         <Text style={styles.heading}>Create your</Text>
@@ -107,7 +116,8 @@ const SignIn = () => {
             <AntDesignIcon name="arrowright" size={26} color="#000" />
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          {/* Corrected navigation to 'index' or 'Login' depending on your file structure */}
+          <TouchableOpacity onPress={() => navigation.navigate('index')}>
             <Text style={styles.loginText}>Already have an account? Log in</Text>
           </TouchableOpacity>
         </View>
@@ -117,20 +127,19 @@ const SignIn = () => {
 };
 
 const styles = StyleSheet.create({
-  // New container style for the main background color
   container: {
     flex: 1,
-    backgroundColor: '#1E1E1E', // Solid dark background
-    justifyContent: 'center', // Center content vertically
-    alignItems: 'center', // Center content horizontally
-    paddingTop: 50, // Keep some top padding if needed, or remove if contentContainer handles it
+    backgroundColor: '#1E1E1E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
   },
   contentContainer: {
     width: '90%',
     maxWidth: 400,
     padding: 25,
     borderRadius: 20,
-    backgroundColor: '#282828', // Slightly lighter dark for the card background
+    backgroundColor: '#282828',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,

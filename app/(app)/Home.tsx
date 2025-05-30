@@ -8,14 +8,17 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
-  Alert // Added for logout error
+  Alert, // Added for logout error
+  TextInput
 } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from 'expo-router'; // Correct import for expo-router
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
-
+import {
+  LineChart
+} from "react-native-chart-kit";
 const screenWidth = Dimensions.get('window').width;
 
 const Home = () => {
@@ -79,8 +82,6 @@ const Home = () => {
     auth().signOut()
       .then(() => {
         console.log('User signed out from Home!');
-        // Navigate to the Login screen after logout
-        navigation.replace('Login'); // Use replace to clear the stack
       })
       .catch((e) => {
         console.error('Error signing out:', e);
@@ -98,17 +99,6 @@ const Home = () => {
     );
   }
 
-  // If no userUID and auth loading is done, means no one is logged in
-  if (!userUID && !loadingAuth) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Please log in to view your Home page.</Text>
-        <TouchableOpacity style={styles.loginButton} onPress={() => navigation.replace('Login')}>
-            <Text style={styles.loginButtonText}>Go to Login</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -116,7 +106,7 @@ const Home = () => {
       <View style={styles.header}>
         <View style={styles.searchBar}>
           <MaterialIcons name="search" size={20} color="#888" style={styles.searchIcon} />
-          <Text style={styles.searchText}>Search by contacts, bills</Text>
+          <TextInput style={styles.searchText} placeholder='Search by contacts, bills'/>
         </View>
         <TouchableOpacity onPress={() => navigation.navigate('mypage')}>
           <Image style={styles.profileIcon} source={require('../../assets/images/google.png')} />
@@ -151,8 +141,7 @@ const Home = () => {
 
         {/* Graph Area Placeholder */}
         <View style={styles.graphAreaPlaceholder}>
-          <View style={styles.graphPlaceholderLine} />
-          <View style={styles.graphDot} />
+       
         </View>
 
         {/* --- Central QR Scanner Icon --- */}
@@ -164,7 +153,7 @@ const Home = () => {
 
         {/* Grid Icons Section */}
         <View style={styles.gridIconsContainer}>
-          <TouchableOpacity style={styles.gridIconButton} onPress={() => navigation.navigate('Pay_contact')}>
+          <TouchableOpacity style={styles.gridIconButton} onPress={() => navigation.navigate('Payment')}>
             <MaterialIcons name="account-balance" size={30} color="white" />
             <Text style={styles.gridIconText}>Bank transfer</Text>
           </TouchableOpacity>
@@ -193,7 +182,7 @@ const Home = () => {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
           {/* Placeholder for people circles */}
-          {Array(8).fill(0).map((_, i) => (
+          {Array(5).fill(0).map((_, i) => (
             <View key={i} style={styles.personCircle}>
               <Image style={styles.personImage} source={require('../../assets/images/google.png')} />
             </View>

@@ -64,8 +64,7 @@ const MyPage = () => {
     signOut(getAuth())
       .then(() => {
         console.log('User signed out!');
-        // You might want to navigate to the Login screen here
-        // navigation.navigate('Login'); // Uncomment if you have navigation set up
+     
       })
       .catch((e) => {
         console.error('Error signing out:', e);
