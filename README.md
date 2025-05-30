@@ -49,3 +49,19 @@ Join our community of developers creating universal apps.
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
 # payment_app_clone
+Secure Mobile Payment Application
+This application provides a secure and intuitive platform for mobile payments, leveraging React Native for a seamless cross-platform experience and Firebase for robust backend services. Users can efficiently manage their balances and facilitate transactions through a user-friendly interface.
+
+Key Features:
+
+User Authentication & Profile Management: Securely log in and manage your personal user profile.
+Balance Management: View your current balance in real-time, updated via Firestore listeners.
+QR Code Scanning for Payments: Initiate payments quickly by scanning a recipient's unique QR code. The app extracts the recipient's Firebase User ID (UID) from the QR code.
+Recipient Details Fetching: Upon scanning, the payment screen intelligently fetches and displays the recipient's username and email from Firestore using their UID, ensuring you know who you're paying.
+Numeric Keypad for Amount Entry: An integrated, custom numeric keypad allows for precise and easy input of payment amounts.
+Secure Transactions: All payment operations are handled through Firestore Transactions, guaranteeing atomicity (either both sender's debit and recipient's credit succeed, or both fail) for financial integrity.
+Real-time Updates: Firebase's real-time capabilities ensure that balances and transaction statuses are promptly reflected across the application.
+Camera Permission Handling: Robust handling of camera permissions ensures a smooth and secure QR scanning experience.
+Flashlight Toggle: Easily toggle your device's flashlight within the camera view for scanning in low-light conditions.
+This application is designed with security and user experience at its core, making mobile payments straightforward and reliable.
+
