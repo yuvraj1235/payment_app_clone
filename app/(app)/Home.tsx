@@ -185,7 +185,7 @@ const Home = () => {
             <MaterialIcons name="mobile-friendly" size={30} color="white" />
             <Text style={styles.gridIconText}>Mobile recharge</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.gridIconButton}>
+          <TouchableOpacity style={styles.gridIconButton} onPress={()=>navigation.navigate("history")}>
             <MaterialIcons name="history" size={30} color="white" />
             <Text style={styles.gridIconText}>Transaction history</Text>
           </TouchableOpacity>

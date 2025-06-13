@@ -17,9 +17,9 @@ const Payment = ({ route }) => {
   
   const [amount, setAmount] = useState('');
   const [mybal, setMyBal] = useState(null); 
+  const [recipientEmail, setRecipientEmail] = useState(null);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
   const [currentUsername, setCurrentUsername] = useState(null);
-  const [recipientEmail, setRecipientEmail] = useState(null);
   const [recipientUsername, setRecipientUsername] = useState(null); 
   const [selectedBank, setSelectedBank] = useState({ name: 'HDFC Bank', lastDigits: '0123' });
   const [isLoadingRecipient, setIsLoadingRecipient] = useState(true);
@@ -63,6 +63,7 @@ const Payment = ({ route }) => {
 
         transaction.update(senderDocRef, {
           balance: firestore.FieldValue.increment(-amountToPay),
+          transhistory:firestore.FieldValue.arrayUnion(-amountToPay),
         });
 
         // 2. Increment recipient's balance
@@ -74,6 +75,7 @@ const Payment = ({ route }) => {
         }
         transaction.update(recipientDocRef, {
           balance: firestore.FieldValue.increment(amountToPay),
+          transhistory:firestore.FieldValue.arrayUnion(amountToPay),
         });
       });
 

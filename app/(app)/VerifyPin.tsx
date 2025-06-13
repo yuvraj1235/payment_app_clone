@@ -53,6 +53,8 @@ export default function VerifyPin({ navigation }) {
     } else {
       Alert.alert("Incorrect PIN", "Try again.");
       setPin('');
+      navigation.goBack();
+     
     }
   } catch (error) {
     Alert.alert("Error", "Something went wrong.");
