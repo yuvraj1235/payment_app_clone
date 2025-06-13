@@ -8,7 +8,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { useNavigation } from 'expo-router'; // CORRECTED: Import useNavigation from expo-router
+import { useNavigation } from 'expo-router'; 
 import AntDesignIcon from 'react-native-vector-icons/AntDesign';
 import { getAuth, createUserWithEmailAndPassword } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
@@ -30,7 +30,7 @@ const SignIn = () => {
       .then(userCredential => {
         const user = userCredential.user;
 
-        // Use .set() with { merge: true } to preserve existing fields like 'balance'
+        
         return firestore()
           .collection('users')
           .doc(user.uid)
@@ -39,19 +39,14 @@ const SignIn = () => {
               email: email,
               username: username,
               createdAt: firestore.FieldValue.serverTimestamp(),
-              // You might want to initialize balance for a NEW user here if it's always 0
-              // For existing users, merge:true will preserve it.
-              // For new users, if balance doesn't exist, it will be added as 0.
-               balance: firestore.FieldValue.increment(0), // Initialize balance for new sign-ups
+              
+               balance: firestore.FieldValue.increment(0), 
             },
-            { merge: true } // <-- THIS IS THE KEY CHANGE
+            { merge: true }
           );
       })
       .then(() => {
         console.log('User data saved/merged!');
-        // After successful sign-up and data creation, navigate them to the main app or login
-        // It's often good practice to replace the stack after a successful auth flow
-        navigation.replace('Home'); // Or navigate('Login') if you want them to explicitly log in
       })
       .catch(error => {
         if (error.code === 'auth/email-already-in-use') {
@@ -116,7 +111,7 @@ const SignIn = () => {
             <AntDesignIcon name="arrowright" size={26} color="#000" />
           </TouchableOpacity>
 
-          {/* Corrected navigation to 'index' or 'Login' depending on your file structure */}
+        
           <TouchableOpacity onPress={() => navigation.navigate('index')}>
             <Text style={styles.loginText}>Already have an account? Log in</Text>
           </TouchableOpacity>

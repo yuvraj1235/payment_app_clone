@@ -1,4 +1,3 @@
-// app/Camera.js
 import React, { useState } from 'react';
 import {
   View,
@@ -13,8 +12,15 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useNavigation } from 'expo-router';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
+// Define types for navigation parameters
+type RootStackParamList = {
+  mypage: undefined;
+  Camera: undefined;
+  Payment: { recipientUid: string };  // Expect recipientUid to be a string for the 'Payment' screen
+};
+
 const Camera = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation(); // Correctly typed navigation
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [flashMode, setFlashMode] = useState('off');
@@ -52,12 +58,12 @@ const Camera = () => {
   }
 
   // --- Barcode Scanning Logic ---
-  const handleBarCodeScanned = ({ type, data }) => {
+  const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
     setScanned(true); // Prevent further scans until reset or navigated
     console.log(`Scanned QR Code: Type: ${type}, Data: ${data}`);
 
     // Assuming the 'data' from the QR code is the recipient's User ID (UID)
-    navigation.navigate('Payment', { recipientUid: data });
+    navigation.navigate('Payment', { recipientUid: data });  // Pass recipientUid correctly
 
     // Optional: You can remove this Alert if you want a seamless transition
     // Alert.alert(`QR Scanned!`, `Recipient ID: ${data}`, [{ text: "OK" }]);

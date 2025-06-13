@@ -1,4 +1,3 @@
-// app/Home.js
 import {
   View,
   Text,
@@ -8,88 +7,75 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
-  Alert, // Added for logout error
-  TextInput
+  TextInput,
+  ImageBackground,
+  RefreshControl,
 } from 'react-native';
 import React, { useEffect, useState } from 'react';
-import { useNavigation } from 'expo-router'; // Correct import for expo-router
+import { useNavigation } from 'expo-router';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
-import {
-  LineChart
-} from "react-native-chart-kit";
-const screenWidth = Dimensions.get('window').width;
+import { LineChart } from 'react-native-chart-kit';
+
+type RootStackParamList = {
+  navigate(arg0: string): void;
+  mypage: undefined;
+  Camera: undefined;
+  Payment: { recipientUid: string };
+};
 
 const Home = () => {
-  const navigation = useNavigation();
-  const [userUID, setUserUID] = useState(null);
-  const [balance, setBalance] = useState(null);
+  const navigation = useNavigation<RootStackParamList>();
+  const [userUID, setUserUID] = useState<string | null>(null);
+  const [balance, setBalance] = useState<string | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [loadingBalance, setLoadingBalance] = useState(false);
-  const [error, setError] = useState(null);
-  const [showBalance, setShowBalance] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showBalance, setShowBalance] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // 1. Auth State Listener
   useEffect(() => {
     const subscriber = auth().onAuthStateChanged(user => {
       setUserUID(user ? user.uid : null);
-      setLoadingAuth(false); // Auth state determined
+      setLoadingAuth(false);
     });
-    return subscriber; // Unsubscribe on unmount
+    return subscriber;
   }, []);
 
-  // 2. Fetch Balance (runs when userUID changes from null to a valid UID)
-  useEffect(() => {
-    const fetchUserBalance = async () => {
-      if (userUID) { // Only attempt to fetch if userUID is not null
-        setLoadingBalance(true);
-        setError(null); // Clear previous errors
-        try {
-          console.log(`Fetching balance for user: ${userUID}`);
-          const documentSnapshot = await firestore().collection('users').doc(userUID).get();
-
-          if (documentSnapshot.exists) {
-            const userData = documentSnapshot.data();
-            console.log('User data from Firestore: ', userData);
-            setBalance(userData.balance || 0); // Use 0 as default if balance field is missing
-          } else {
-            console.log('User document does NOT exist in Firestore for UID:', userUID);
-            setBalance(0); // Default balance for users without a document
-          }
-        } catch (e) {
-          console.error('Error fetching user data from Firestore:', e);
-          setError('Failed to load balance. Please check your network or try again.');
-          setBalance(null); // Reset balance on error
-        } finally {
-          setLoadingBalance(false);
+  const fetchUserBalance = async () => {
+    if (userUID) {
+      setLoadingBalance(true);
+      setError(null);
+      try {
+        const doc = await firestore().collection('users').doc(userUID).get();
+        if (doc.exists) {
+          const data = doc.data();
+          setBalance(data?.balance?.toString() || '0');
+        } else {
+          setBalance('0');
         }
-      } else if (userUID === null && !loadingAuth) {
-        // If no user is signed in and auth loading is complete
-        setBalance(null); // Ensure balance is cleared if user logs out
+      } catch (e) {
+        console.error(e);
+        setError('Failed to fetch balance');
+        setBalance(null);
+      } finally {
         setLoadingBalance(false);
       }
-    };
-
-    fetchUserBalance(); // Call the fetch function
-  }, [userUID, loadingAuth]); // Dependency array: re-run when userUID or loadingAuth changes
-
-  const toggleBalanceVisibility = () => {
-    setShowBalance(prev => !prev);
+    }
   };
 
-  const handleLogout = () => {
-    auth().signOut()
-      .then(() => {
-        console.log('User signed out from Home!');
-      })
-      .catch((e) => {
-        console.error('Error signing out:', e);
-        Alert.alert('Logout Error', 'Failed to log out. Please try again.');
-      });
+  useEffect(() => {
+    if (!loadingAuth && userUID) fetchUserBalance();
+  }, [userUID, loadingAuth]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    setShowBalance(false);
+    await fetchUserBalance();
+    setRefreshing(false);
   };
 
-  // Show a full screen loading indicator if authentication state is still being determined
   if (loadingAuth) {
     return (
       <View style={styles.loadingContainer}>
@@ -99,22 +85,25 @@ const Home = () => {
     );
   }
 
-
   return (
     <View style={styles.container}>
-      {/* Search Bar & Profile Icon */}
       <View style={styles.header}>
         <View style={styles.searchBar}>
           <MaterialIcons name="search" size={20} color="#888" style={styles.searchIcon} />
-          <TextInput style={styles.searchText} placeholder='Search by contacts, bills'/>
+          <TextInput style={styles.searchText} placeholder="Search by contacts, bills" />
         </View>
         <TouchableOpacity onPress={() => navigation.navigate('mypage')}>
           <MaterialIcons name="person" size={40} color="#888" style={styles.profileIcon} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollViewContent} showsVerticalScrollIndicator={false}>
-        {/* Balance Section */}
+      <ScrollView
+        style={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
+        }
+      >
         <View style={styles.balanceContainer}>
           {loadingBalance ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -123,41 +112,72 @@ const Home = () => {
           ) : (
             <View style={styles.balanceRow}>
               {showBalance ? (
-                <Text style={styles.balanceAmount}>₹{balance !== null ? balance.toFixed(2) : '0.00'}</Text>
+                <Text style={styles.balanceAmount}>₹{balance ? parseFloat(balance).toFixed(2) : '0.00'}</Text>
               ) : (
                 <Text style={styles.balanceObscured}>₹ ******.**</Text>
               )}
-              <TouchableOpacity onPress={toggleBalanceVisibility} style={styles.eyeIconWrapper}>
+              <TouchableOpacity
+                onPress={() => (showBalance)?setShowBalance(false): navigation.navigate('VerifyPin', { onSuccess: () => setShowBalance(true) })}
+                style={styles.eyeIconWrapper}
+              >
+
                 <MaterialIcons
-                  name={showBalance ? "remove-red-eye" : "visibility-off"}
+                  name={showBalance ? 'remove-red-eye' : 'visibility-off'}
                   size={24}
                   color="#fff"
                 />
               </TouchableOpacity>
             </View>
           )}
-          <Text style={styles.updatedText}>Updated 2 minutes ago</Text>
+          <Text style={styles.updatedText}>Updated just now</Text>
         </View>
 
-        {/* Graph Area Placeholder */}
-        <View style={styles.graphAreaPlaceholder}>
-       
-        </View>
+        <ImageBackground
+          source={require('../../assets/images/background.jpg')}
+          style={styles.graphAreaPlaceholder}
+        >
+          <LineChart
+            data={{
+              labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+              datasets: [
+                {
+                  data: Array.from({ length: 6 }, () => Math.random() * 100),
+                },
+              ],
+            }}
+            width={Dimensions.get('window').width}
+            height={220}
+            yAxisLabel="₹"
+            chartConfig={{
+              backgroundColor: '#000',
+              backgroundGradientFrom: '#444',
+              backgroundGradientTo: '#222',
+              decimalPlaces: 2,
+              color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+              propsForDots: {
+                r: '6',
+                strokeWidth: '2',
+                stroke: '#ffa726',
+              },
+            }}
+            bezier
+            style={{ borderRadius: 16 }}
+          />
+        </ImageBackground>
 
-        {/* --- Central QR Scanner Icon --- */}
         <View style={styles.scannerIconWrapper}>
-          <TouchableOpacity style={styles.scannerIcon} onPress={() => navigation.navigate("Camera")}>
+          <TouchableOpacity style={styles.scannerIcon} onPress={() => navigation.navigate('Camera')}>
             <MaterialIcons name="qr-code-2" size={40} color="black" />
           </TouchableOpacity>
         </View>
 
-        {/* Grid Icons Section */}
         <View style={styles.gridIconsContainer}>
-          <TouchableOpacity style={styles.gridIconButton} onPress={() => navigation.navigate('Payment')}>
+          <TouchableOpacity style={styles.gridIconButton} onPress={() => navigation.navigate('contact')}>
             <MaterialIcons name="account-balance" size={30} color="white" />
             <Text style={styles.gridIconText}>Bank transfer</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.gridIconButton}>
+          <TouchableOpacity style={styles.gridIconButton} onPress={() => navigation.navigate('Pin')}>
             <MaterialIcons name="receipt" size={30} color="white" />
             <Text style={styles.gridIconText}>Pay bills</Text>
           </TouchableOpacity>
@@ -173,293 +193,74 @@ const Home = () => {
 
         <Text style={styles.upiIdText}>UPI ID: notgirish@yobank</Text>
 
-        {/* People Section */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>People</Text>
           <TouchableOpacity>
             <Text style={styles.viewAllText}>View all</Text>
           </TouchableOpacity>
         </View>
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-          {/* Placeholder for people circles */}
-          {Array(5).fill(0).map((_, i) => (
+          {[...Array(5)].map((_, i) => (
             <View key={i} style={styles.personCircle}>
               <Image style={styles.personImage} source={require('../../assets/images/google.png')} />
             </View>
           ))}
         </ScrollView>
 
-        {/* Businesses Section */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Businesses</Text>
           <TouchableOpacity>
             <Text style={styles.viewAllText}>View all</Text>
           </TouchableOpacity>
         </View>
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-          {/* Placeholder for business circles */}
-          {Array(6).fill(0).map((_, i) => (
+          {[...Array(6)].map((_, i) => (
             <View key={i} style={styles.businessCircle}>
               <Image style={styles.businessImage} source={require('../../assets/images/google.png')} />
             </View>
           ))}
         </ScrollView>
 
-        <View style={{ height: 100 }} /> {/* Spacer at the bottom */}
+        <View style={{ height: 100 }} />
       </ScrollView>
-
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1E1E1E', // Dark background for the whole screen
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1E1E1E',
-  },
-  loadingTextIndicator: {
-    color: '#fff',
-    marginTop: 10,
-    fontSize: 16,
-  },
-  scrollViewContent: {
-    flex: 1, // Allows scrolling
-    paddingHorizontal: 15,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingTop: 50, // Adjust for status bar
-    paddingBottom: 15,
-    backgroundColor: '#1E1E1E',
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#282828', // Darker gray for search bar background
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    flex: 1,
-    marginRight: 15,
-  },
-  searchIcon: {
-    marginRight: 5,
-  },
-  searchText: {
-    color: '#888', // Light gray text
-    fontSize: 16,
-  },
-  profileIcon: {
-    height: 40,
-    width: 40,
-    color:'white'
-  },
-  balanceContainer: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    marginTop: 20,
-    marginBottom: 10,
-    paddingHorizontal: 0,
-  },
-  balanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  balanceAmount: {
-    fontWeight: 'bold',
-    color: 'white',
-    fontSize: 28,
-    marginRight: 10,
-  },
-  balanceObscured: {
-    fontWeight: 'bold',
-    color: 'white',
-    fontSize: 28,
-    marginRight: 10,
-  },
-  eyeIconWrapper: {
-    padding: 5,
-  },
-  updatedText: {
-    color: '#888',
-    fontSize: 12,
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  loginButton: {
-    backgroundColor: '#66d9ef',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 20,
-  },
-  loginButtonText: {
-    color: '#000',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  graphAreaPlaceholder: {
-    height: 150,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    backgroundColor: '#282828',
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  graphPlaceholderLine: {
-    position: 'absolute',
-    width: '90%',
-    height: 2,
-    backgroundColor: 'rgba(75, 192, 192, 0.7)',
-    bottom: 30,
-    left: '5%',
-    transform: [{ rotateZ: '-5deg' }],
-  },
-  graphDot: {
-    position: 'absolute',
-    top: 50,
-    // This calculation is a bit tricky with absolute positioning and rotation.
-    // Adjust based on your exact layout needs.
-    // For now, it's a rough approximation for placement.
-    left: screenWidth * 0.95 * 0.8 * 0.95, // Simplified to place it generally.
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#75B6E4',
-    zIndex: 2,
-  },
-  scannerIconWrapper: {
-    position: 'absolute',
-    right: 10,
-    top: 180, // Adjust this top value to position it relative to the balance container
-    zIndex: 3, // Ensures it's above other elements
-  },
-  scannerIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
-  },
-  gridIconsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    backgroundColor: '#282828',
-    borderRadius: 15,
-    paddingVertical: 15,
-    marginTop: 20,
-  },
-  gridIconButton: {
-    alignItems: 'center',
-    width: '23%', // Roughly 4 icons per row
-    paddingVertical: 10,
-  },
-  gridIconText: {
-    color: 'white',
-    fontSize: 11,
-    marginTop: 5,
-    textAlign: 'center',
-  },
-  upiIdText: {
-    color: '#888',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 15,
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  viewAllText: {
-    color: '#75B6E4',
-    fontSize: 14,
-  },
-  horizontalScroll: {
-    marginBottom: 20,
-  },
-  personCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#3A3A3A',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-    overflow: 'hidden',
-  },
-  personImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 30,
-  },
-  businessCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#3A3A3A',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-    overflow: 'hidden',
-  },
-  businessImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 25,
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#282828',
-    height: 60,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingBottom: 5, // For notch devices
-  },
-  navItem: {
-    flex: 1, // Distribute space evenly
-    alignItems: 'center',
-    paddingVertical: 5,
-  }
+  container: { flex: 1, backgroundColor: '#121212', padding: 10, paddingTop: 50 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#121212' },
+  loadingTextIndicator: { color: '#fff', marginTop: 10 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10 },
+  searchBar: { flexDirection: 'row', backgroundColor: '#1f1f1f', padding: 10, borderRadius: 10, flex: 1, marginRight: 10 },
+  searchIcon: { marginRight: 10 },
+  searchText: { color: '#fff', flex: 1 },
+  profileIcon: { paddingHorizontal: 5 },
+  scrollViewContent: { paddingHorizontal: 10 },
+  balanceContainer: { backgroundColor: '#1f1f1f', padding: 20, borderRadius: 12, marginVertical: 10 },
+  balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  balanceAmount: { fontSize: 28, color: '#fff', fontWeight: 'bold' },
+  balanceObscured: { fontSize: 28, color: '#fff', letterSpacing: 2 },
+  eyeIconWrapper: { marginLeft: 10 },
+  updatedText: { color: '#aaa', marginTop: 8, fontSize: 12 },
+  errorText: { color: 'red', fontSize: 14 },
+  graphAreaPlaceholder: { marginTop: 10, borderRadius: 16, overflow: 'hidden' },
+  scannerIconWrapper: { alignItems: 'center', marginVertical: 20 },
+  scannerIcon: { backgroundColor: '#fff', padding: 20, borderRadius: 50 },
+  gridIconsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginVertical: 20 },
+  gridIconButton: { width: '47%', backgroundColor: '#1f1f1f', padding: 15, marginBottom: 10, borderRadius: 10, alignItems: 'center' },
+  gridIconText: { color: '#fff', marginTop: 8 },
+  upiIdText: { color: '#ccc', textAlign: 'center', marginVertical: 10 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 10 },
+  sectionTitle: { color: '#fff', fontSize: 16 },
+  viewAllText: { color: '#00f' },
+  horizontalScroll: { paddingVertical: 10 },
+  personCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#333', justifyContent: 'center', alignItems: 'center', marginHorizontal: 5 },
+  personImage: { width: 40, height: 40, resizeMode: 'contain' },
+  businessCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#444', justifyContent: 'center', alignItems: 'center', marginHorizontal: 5 },
+  businessImage: { width: 40, height: 40, resizeMode: 'contain' },
 });
 
 export default Home;

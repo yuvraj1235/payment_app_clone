@@ -1,4 +1,4 @@
-// app/index.js (Your Login Screen)
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -11,19 +11,17 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
-import { useNavigation } from 'expo-router'; // CORRECTED: Import useNavigation from expo-router
+import { useNavigation } from 'expo-router';
 import AntDesignIcon from 'react-native-vector-icons/AntDesign';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import Google from './Google'; // Assuming this component exists and is styled separately
+import Google from './Google';
 
 const index = () => {
-  const navigation = useNavigation(); // This is now correct for expo-router
+  const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Authentication logic remains the same
   const loginUser = async () => {
     if (!email || !password) {
       Alert.alert('Missing Fields', 'Please enter both email and password.');
@@ -35,11 +33,6 @@ const index = () => {
       const response = await auth().signInWithEmailAndPassword(email, password);
       Alert.alert('Success', 'Logged in successfully!');
       console.log('User logged in:', response.user.email);
-      // Navigate to Home after successful login.
-      // In expo-router, if 'Home' is in the root stack, you can navigate directly.
-      // If 'Home' is in a different group (e.g., app/(app)/Home.js), you might use router.replace('/(app)/Home')
-      // For now, assuming 'Home' is a direct sibling or accessible via the main stack.
-      navigation.replace('Home'); // Use replace to clear the authentication stack
     } catch (error) {
       console.error('Email/Password Login Error:', error);
       let errorMessage = 'An unexpected error occurred. Please try again.';
@@ -149,16 +142,16 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
   },
   contentContainer: {
-    width: '100%', // Take full width within the container's padding
-    maxWidth: 400, // Max width for larger screens
+    width: '100%',
+    maxWidth: 400,
     padding: 25,
     borderRadius: 20,
-    backgroundColor: '#282828', // A slightly lighter dark for the card
-    shadowColor: '#000', // Still good for a subtle lift
-    shadowOffset: { width: 0, height: 8 }, // Slightly less shadow depth
-    shadowOpacity: 0.3, // Less intense shadow
-    shadowRadius: 15, // Softer shadow
-    elevation: 10, // Android shadow
+    backgroundColor: '#282828',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 10,
   },
   heading: {
     fontSize: 42,

@@ -1,32 +1,32 @@
-// app/Payment.js
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, ActivityIndicator } from 'react-native'; // Added ActivityIndicator
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, ActivityIndicator } from 'react-native'; 
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useLocalSearchParams } from 'expo-router';
 import firestore from '@react-native-firebase/firestore';
-import auth from '@react-native-firebase/auth'; // Import Firebase Auth to get current user's UID
+import auth from '@react-native-firebase/auth'; 
 
 const { width } = Dimensions.get('window');
 
-const Payment = () => {
+const Payment = ({ route }) => {
   const navigation = useNavigation();
   const params = useLocalSearchParams();
-  const { recipientUid } = params; // Expecting recipientUid instead of qrData
-
+  const { recipientUid } = route.params; 
+  useEffect(() => {
+    console.log("Received recipientUid:", recipientUid); // Log to verify if it's passed correctly
+  }, [recipientUid]);
+  
   const [amount, setAmount] = useState('');
-  const [mybal, setMyBal] = useState(null); // Current user's balance
+  const [mybal, setMyBal] = useState(null); 
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
   const [currentUsername, setCurrentUsername] = useState(null);
-  const [recipientEmail, setRecipientEmail] = useState(null); // Recipient's email
-  const [recipientUsername, setRecipientUsername] = useState(null); // Recipient's username
+  const [recipientEmail, setRecipientEmail] = useState(null);
+  const [recipientUsername, setRecipientUsername] = useState(null); 
   const [selectedBank, setSelectedBank] = useState({ name: 'HDFC Bank', lastDigits: '0123' });
-  const [isLoadingRecipient, setIsLoadingRecipient] = useState(true); // Loading state for recipient data
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false); // Loading state for payment
+  const [isLoadingRecipient, setIsLoadingRecipient] = useState(true);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
-  // Get the current authenticated user's UID
-  const currentUserUid = auth().currentUser?.uid; // Ensure user is logged in
+  const currentUserUid = auth().currentUser?.uid; 
 
-  // Function to handle payment
   const pay = async () => {
     if (!amount || Number(amount) <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid amount to pay.');
@@ -48,7 +48,7 @@ const Payment = () => {
 
     try {
       await firestore().runTransaction(async (transaction) => {
-        // 1. Decrement sender's balance (current user)
+      
         const senderDocRef = firestore().collection('users').doc(currentUserUid);
         const senderSnapshot = await transaction.get(senderDocRef);
 
@@ -151,6 +151,8 @@ const Payment = () => {
     if (recipientUid) {
       // If a recipient UID is passed, fetch their details
       fetchRecipientDetails(recipientUid);
+      console.log(recipientUid);
+      
     } else {
       // If no recipient UID, set default states and stop loading
       setRecipientUsername('Scan QR / Select Recipient');

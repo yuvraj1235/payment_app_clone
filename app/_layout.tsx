@@ -24,7 +24,7 @@ export default function RootLayout() {
   if (initializing) return null;
   return (
     <Stack>
-      <Stack.Protected guard={user}>
+      <Stack.Protected guard={!!user}>
         <Stack.Screen name="(app)" options={{ headerShown: false }} />
       </Stack.Protected>
 

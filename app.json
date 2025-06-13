@@ -20,7 +20,8 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.yubrajsau.Gpay",
-      "googleServicesFile": "/home/yuvlux/Gpay/android/app/google-services.json"
+      "googleServicesFile": "./android/app/google-services.json",
+      "ndkVersion": "25.2.9519653"
     },
     "web": {
       "bundler": "metro",

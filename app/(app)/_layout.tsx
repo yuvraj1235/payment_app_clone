@@ -1,51 +1,83 @@
-// app/_layout.js
-import { Stack } from 'expo-router';
 import React from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+
+
+// Import your screens (adjust paths based on your actual file structure)
+import Camera from './Camera';
+import Contact from './Contact';
+import History from './History';
+import Home from './Home';
+import MyPage from './mypage';
+import Pay_Contact from './Pay_contact';
+import PaymentScreen from './Payment';
+import Pin from './Pin';
+import VerifyPin from './VerifyPin';
+
+const Tab = createBottomTabNavigator();
 
 const RootLayout = () => {
   return (
-    <Stack>
-      
-      <Stack.Screen
-        name="index" // Assuming your Login screen is app/index.js
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Login" // Assuming you have an app/Login.js for manual navigation
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="SignIn" // Assuming you have an app/SignIn.js
-        options={{ headerShown: false }}
-      />
+  
+      <Tab.Navigator>
+        {/* Tab for Home Screen */}
+        <Tab.Screen 
+          name="Home" 
+          component={Home} 
+          options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
 
-      {/* Main App Screens - generally shown after authentication */}
-      <Stack.Screen
-        name="Home" // Corresponds to app/Home.js
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="mypage" // Corresponds to app/mypage.js
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Pay_contact" // Corresponds to app/Pay_contact.js
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Camera" // Corresponds to app/Camera.js
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Contact" // Corresponds to app/Contact.js
-        options={{ headerShown: false }}
-      />
-       <Stack.Screen
-        name="Payment" // Corresponds to app/Contact.js
-        options={{ headerShown: false }}
-      />
-      {/* Add other main app screens here as needed */}
-    </Stack>
+        {/* Tab for Camera Screen */}
+        <Tab.Screen 
+          name="Camera" 
+          component={Camera} 
+           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+
+        {/* Tab for Contact Screen */}
+        <Tab.Screen 
+          name="contact" 
+          component={Contact} 
+          options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+      <Tab.Screen 
+          name="Pin" 
+          component={Pin} 
+          options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+        {/* Tab for History Screen */}
+        <Tab.Screen 
+          name="history" 
+          component={History} 
+           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+         <Tab.Screen 
+          name="VerifyPin" 
+          component={VerifyPin} 
+           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+
+        {/* Tab for MyPage Screen */}
+        <Tab.Screen 
+          name="mypage" 
+          component={MyPage} 
+           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}}  
+        />
+
+        {/* Tab for PayContact Screen */}
+        <Tab.Screen 
+          name="pay_contact" 
+          component={Pay_Contact} 
+           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+
+        {/* Tab for Payment Screen */}
+        <Tab.Screen 
+          name="Payment" 
+          component={PaymentScreen} 
+           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+      </Tab.Navigator>
+   
   );
 };
 

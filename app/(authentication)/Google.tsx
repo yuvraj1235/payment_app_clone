@@ -15,12 +15,8 @@ import { useNavigation } from 'expo-router'; // CORRECTED: Import useNavigation 
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin'; // CORRECTED: Import statusCodes
 import firestore from '@react-native-firebase/firestore';
 
-// Configure Google Sign-In (should ideally be done once at app startup, e.g., in _layout.js or App.js)
 GoogleSignin.configure({
-  webClientId: process.env.WEB_CLIENT_ID, // Ensure this env variable is correctly set up in your Expo project
-  // If you also need iOS or Android client IDs, add them here:
-  // iosClientId: 'YOUR_IOS_CLIENT_ID',
-  // androidClientId: 'YOUR_ANDROID_CLIENT_ID',
+  webClientId: process.env.WEB_CLIENT_ID, 
 });
 
 const Google = () => {
@@ -150,25 +146,18 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     alignSelf: 'center',
     alignItems: 'center',
-    // You can add a subtle background like '#3a3a3a' if you want it more prominent
-    // backgroundColor: '#3a3a3a',
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 4 },
-    // shadowOpacity: 0.3,
-    // shadowRadius: 5,
-    // elevation: 5,
-  },
+      },
   googleIcon: {
     height: 50,
     width: 50,
-    borderRadius: 25, // Make it circular if the image is square
+    borderRadius: 25, 
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject, // Covers the entire screen
+    ...StyleSheet.absoluteFillObject, 
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10, // Ensure it's on top
+    zIndex: 10, 
   },
   loadingText: {
     color: 'white',
@@ -176,5 +165,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'System',
   },
-  // Removed unused 'image' style
+
 });
