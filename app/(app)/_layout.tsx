@@ -8,10 +8,10 @@ import Contact from './Contact';
 import History from './History';
 import Home from './Home';
 import MyPage from './mypage';
-import Pay_Contact from './Pay_contact';
 import PaymentScreen from './Payment';
 import Pin from './Pin';
 import VerifyPin from './VerifyPin';
+import SplitBill from './SplitBill';
 
 const Tab = createBottomTabNavigator();
 
@@ -63,17 +63,17 @@ const RootLayout = () => {
            options={{ headerShown: false ,tabBarStyle: { display: 'none' }}}  
         />
 
-        {/* Tab for PayContact Screen */}
-        <Tab.Screen 
-          name="pay_contact" 
-          component={Pay_Contact} 
-           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
-        />
+  
 
         {/* Tab for Payment Screen */}
         <Tab.Screen 
           name="Payment" 
           component={PaymentScreen} 
+           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+        <Tab.Screen 
+          name="Split" 
+          component={SplitBill} 
            options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
       </Tab.Navigator>

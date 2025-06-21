@@ -1,83 +1,78 @@
-import React, { useState,useEffect } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, Dimensions } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
+
+const { width } = Dimensions.get('window');
+
 export default function Pin() {
-    const [userUID, setUserUID] = useState<string | null>(null);
-    useEffect(() => {
+  const [userUID, setUserUID] = useState(null);
+  const [pin, setPin] = useState('');
+
+  useEffect(() => {
     const subscriber = auth().onAuthStateChanged(user => {
-      setUserUID(user ? user.uid : null); 
+      setUserUID(user ? user.uid : null);
     });
     return subscriber;
   }, []);
-  
-  
-  const [pin, setPin] = useState('');
 
   const handleKeyPress = (key) => {
     if (key === 'backspace') {
       setPin(pin.slice(0, -1));
-    } else {
-      if (pin.length < 6) {
-        setPin(pin + key);
-      }
+    } else if (pin.length < 6) {
+      setPin(pin + key);
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (pin.length === 6) {
-          firestore()
-        .collection('users')
-        .doc(userUID)
-        .set(
-          {
-           
-            Pin:pin // Use increment(0) to ensure field exists without overwriting
-          },
-          { merge: true } // IMPORTANT: This ensures existing fields like 'balance' are not overwritten
-        );
-      Alert.alert("PIN SET");
-      setPin('')
+      try {
+        await firestore()
+          .collection('users')
+          .doc(userUID)
+          .set({ Pin: pin }, { merge: true });
+
+        Alert.alert('Success', 'Your PIN has been set.');
+        setPin('');
+      } catch (error) {
+        console.error(error);
+        Alert.alert('Error', 'Failed to set PIN.');
+      }
     } else {
-      Alert.alert("Invalid PIN", "Please enter a 6-digit PIN.");
+      Alert.alert('Invalid PIN', 'Please enter a 6-digit PIN.');
     }
   };
+
+  const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'backspace', '0', 'submit'];
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-      
-      </View>
+      <Text style={styles.title}>🔐 Set UPI PIN</Text>
+      <Text style={styles.instruction}>Create your 6-digit secure PIN</Text>
 
-      {/* PIN Instruction */}
-      <Text style={styles.instruction}>Enter 6-digit UPI PIN</Text>
-
-      {/* PIN Input */}
       <TextInput
         value={pin}
         style={styles.pinInput}
         secureTextEntry
         keyboardType="numeric"
         maxLength={6}
-        editable={false} // To disable typing directly into the input field
+        editable={false}
       />
 
-      {/* Keypad */}
       <View style={styles.keypad}>
-        {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'backspace', '0', 'submit'].map((key) => (
+        {KEYS.map((key) => (
           <TouchableOpacity
             key={key}
-            style={styles.keypadButton}
-            onPress={() => {
-              if (key === 'submit') {
-                handleSubmit();
-              } else {
-                handleKeyPress(key);
-              }
-            }}
+            style={[
+              styles.keypadButton,
+              key === 'submit' && styles.submitKey,
+              key === 'backspace' && styles.backspaceKey,
+            ]}
+            onPress={() => (key === 'submit' ? handleSubmit() : handleKeyPress(key))}
           >
-            <Text style={styles.keypadButtonText}>{key === 'backspace' ? '⌫' : key}</Text>
+            <Text style={styles.keyText}>
+              {key === 'backspace' ? '⌫' : key === 'submit' ? '✓' : key}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -85,74 +80,68 @@ export default function Pin() {
   );
 }
 
+const BUTTON_SIZE = width / 4 - 20;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1E1E', // Dark background
-    paddingTop: 50,
+    backgroundColor: '#0f0f0f',
+    paddingTop: 60,
     paddingHorizontal: 20,
+    alignItems: 'center',
   },
-  header: {
-    marginBottom: 30,
-  },
-  bankName: {
+  title: {
     color: '#ffffff',
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-  },
-  userName: {
-    color: '#B0B0B0',
-    fontSize: 18,
-  },
-  balance: {
-    color: '#66D9EF',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginTop: 5,
+    marginBottom: 10,
   },
   instruction: {
-    color: '#E0E0E0',
-    fontSize: 18,
+    color: '#a0a0a0',
+    fontSize: 16,
+    marginBottom: 30,
     textAlign: 'center',
-    marginBottom: 20,
   },
   pinInput: {
-    color: '#E0E0E0',
-    fontSize: 24,
-    letterSpacing: 10,
-    marginBottom: 40,
+    color: '#00e6a7',
+    fontSize: 28,
+    letterSpacing: 16,
     textAlign: 'center',
+    paddingVertical: 14,
     borderBottomWidth: 2,
-    borderBottomColor: '#E0E0E0',
-    paddingVertical: 10,
+    borderBottomColor: '#00e6a7',
+    width: '70%',
+    marginBottom: 40,
   },
   keypad: {
     flexDirection: 'row',
-    flexWrap:'wrap',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 20,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   keypadButton: {
-    backgroundColor: '#333333',
-    borderRadius: 50,
-    width: 100,
-    height:100,
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
+    margin: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
+    backgroundColor: '#1a1a1a',
+    shadowColor: '#00e6a7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 6,
   },
-  keypadButtonText: {
-    color: '#ffffff',
+  keyText: {
     fontSize: 24,
+    color: '#ffffff',
     fontWeight: 'bold',
   },
-  submitButton: {
-    backgroundColor: '#66D9EF',
-    borderRadius: 50,
-    width: 60,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
+  backspaceKey: {
+    backgroundColor: '#333333',
+  },
+  submitKey: {
+    backgroundColor: '#00e6a7',
+    shadowColor: '#00ffd0',
   },
 });

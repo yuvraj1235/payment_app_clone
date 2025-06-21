@@ -1,31 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, ActivityIndicator } from 'react-native'; 
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useLocalSearchParams } from 'expo-router';
 import firestore from '@react-native-firebase/firestore';
-import auth from '@react-native-firebase/auth'; 
+import auth from '@react-native-firebase/auth';
 
 const { width } = Dimensions.get('window');
 
 const Payment = ({ route }) => {
   const navigation = useNavigation();
   const params = useLocalSearchParams();
-  const { recipientUid } = route.params; 
+  const { recipientUid } = route.params;
   useEffect(() => {
     console.log("Received recipientUid:", recipientUid); // Log to verify if it's passed correctly
   }, [recipientUid]);
-  
+
   const [amount, setAmount] = useState('');
-  const [mybal, setMyBal] = useState(null); 
+  const [mybal, setMyBal] = useState(null);
   const [recipientEmail, setRecipientEmail] = useState(null);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
   const [currentUsername, setCurrentUsername] = useState(null);
-  const [recipientUsername, setRecipientUsername] = useState(null); 
+  const [recipientUsername, setRecipientUsername] = useState(null);
   const [selectedBank, setSelectedBank] = useState({ name: 'HDFC Bank', lastDigits: '0123' });
   const [isLoadingRecipient, setIsLoadingRecipient] = useState(true);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
-  const currentUserUid = auth().currentUser?.uid; 
+  const currentUserUid = auth().currentUser?.uid;
 
   const pay = async () => {
     if (!amount || Number(amount) <= 0) {
@@ -48,7 +48,7 @@ const Payment = ({ route }) => {
 
     try {
       await firestore().runTransaction(async (transaction) => {
-      
+
         const senderDocRef = firestore().collection('users').doc(currentUserUid);
         const senderSnapshot = await transaction.get(senderDocRef);
 
@@ -63,7 +63,7 @@ const Payment = ({ route }) => {
 
         transaction.update(senderDocRef, {
           balance: firestore.FieldValue.increment(-amountToPay),
-          transhistory:firestore.FieldValue.arrayUnion(-amountToPay),
+          transhistory: firestore.FieldValue.arrayUnion(-amountToPay),
         });
 
         // 2. Increment recipient's balance
@@ -75,7 +75,7 @@ const Payment = ({ route }) => {
         }
         transaction.update(recipientDocRef, {
           balance: firestore.FieldValue.increment(amountToPay),
-          transhistory:firestore.FieldValue.arrayUnion(amountToPay),
+          transhistory: firestore.FieldValue.arrayUnion(amountToPay),
         });
       });
 
@@ -84,7 +84,7 @@ const Payment = ({ route }) => {
       // Re-fetch current user's balance to reflect change
       fetchCurrentUserDetails(currentUserUid);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error making payment: ", error);
       Alert.alert('Payment Failed', error.message || 'There was an error processing your payment. Please try again.');
     } finally {
@@ -93,16 +93,16 @@ const Payment = ({ route }) => {
   };
 
   // Function to fetch current user's details
-  const fetchCurrentUserDetails = (uid) => {
+  const fetchCurrentUserDetails = (uid: string | undefined) => {
     if (!uid) {
       console.log('No current user UID provided to fetch data.');
-      return () => {}; // Return empty cleanup
+      return () => { }; // Return empty cleanup
     }
     const subscriber = firestore()
       .collection('users')
       .doc(uid)
       .onSnapshot(documentSnapshot => {
-        if (documentSnapshot.exists) {
+        if (documentSnapshot.exists()) {
           const data = documentSnapshot.data();
           // console.log('Current User data: ', data); // Log only if needed for debugging
           setMyBal(data.balance || 0);
@@ -125,12 +125,12 @@ const Payment = ({ route }) => {
 
   // Effect to fetch recipient details when recipientUid is available
   useEffect(() => {
-    const fetchRecipientDetails = async (uid) => {
+    const fetchRecipientDetails = async (uid: string | undefined) => {
       setIsLoadingRecipient(true); // Start loading
       try {
         const recipientDoc = await firestore().collection('users').doc(uid).get();
 
-        if (recipientDoc.exists) {
+        if (recipientDoc.exists()) {
           const recipientData = recipientDoc.data();
           setRecipientUsername(recipientData.username ? recipientData.username.toUpperCase() : 'N/A');
           setRecipientEmail(recipientData.email || 'N/A');
@@ -154,7 +154,7 @@ const Payment = ({ route }) => {
       // If a recipient UID is passed, fetch their details
       fetchRecipientDetails(recipientUid);
       console.log(recipientUid);
-      
+
     } else {
       // If no recipient UID, set default states and stop loading
       setRecipientUsername('Scan QR / Select Recipient');
@@ -172,7 +172,7 @@ const Payment = ({ route }) => {
     }
   }, [currentUserUid]); // Depend on currentUserUid
 
-  const handleKeyPress = (key) => {
+  const handleKeyPress = (key: string) => {
     if (key === 'backspace') {
       setAmount(amount.slice(0, -1));
     } else if (key === '.') {
@@ -187,7 +187,7 @@ const Payment = ({ route }) => {
     }
   };
 
-  const formatAmount = (input) => {
+  const formatAmount = (input: string) => {
     if (!input) return '0';
     let formatted = input.replace(/^0+(?=\d)/, '');
     if (formatted === '') formatted = '0';
@@ -258,7 +258,10 @@ const Payment = ({ route }) => {
           <MaterialIcons name="keyboard-arrow-down" size={24} color="#B0B0B0" style={{ marginLeft: 'auto' }} />
         </View>
         {/* Next Button / Pay Button */}
-        <TouchableOpacity style={styles.nextButton} onPress={pay} disabled={isLoadingRecipient || isProcessingPayment || !recipientUid}>
+        <TouchableOpacity style={styles.nextButton} onPress={() => {
+          navigation.navigate('VerifyPin', { onSuccess: () => pay() });
+        }}
+          disabled={isLoadingRecipient || isProcessingPayment || !recipientUid}>
           {isProcessingPayment ? (
             <ActivityIndicator size="small" color="#000" />
           ) : (
@@ -297,35 +300,42 @@ const Payment = ({ route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
-    paddingHorizontal: 20,
-    paddingTop: 50,
+    backgroundColor: '#0d0d0d',
+    paddingHorizontal: 16,
+    paddingTop: 32,
   },
+
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
+
+  // Recipient
   recipientContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
+    backgroundColor: '#181818',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 20,
   },
   recipientAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 15,
-    backgroundColor: '#3A3A3A',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#2c2c2c',
+    marginRight: 12,
   },
   recipientDetails: {
     flex: 1,
   },
   recipientName: {
-    color: '#E0E0E0',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   recipientSubInfo: {
     flexDirection: 'row',
@@ -333,35 +343,37 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   recipientPhone: {
-    color: '#B0B0B0',
-    fontSize: 14,
+    color: '#aaa',
+    fontSize: 12,
   },
+
+  // Amount
   amountContainer: {
     flexDirection: 'row',
-    alignItems: 'baseline',
     justifyContent: 'center',
-    marginBottom: 30,
+    alignItems: 'flex-end',
+    marginBottom: 24,
   },
   currencySymbol: {
-    color: '#E0E0E0',
-    fontSize: 40,
+    fontSize: 32,
+    color: '#00ffcc',
     fontWeight: 'bold',
-    marginRight: 5,
+    marginRight: 4,
   },
   amountText: {
-    color: '#E0E0E0',
-    fontSize: 60,
+    fontSize: 48,
+    color: '#fff',
     fontWeight: 'bold',
   },
+
+  // Bank
   bankSelectionWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#282828',
-    borderRadius: 12,
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    marginBottom: 30,
-    justifyContent: 'space-between',
+    backgroundColor: '#141414',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 24,
   },
   bankSelectionContainer: {
     flexDirection: 'row',
@@ -372,50 +384,52 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   bankName: {
-    color: '#E0E0E0',
-    fontSize: 16,
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
   },
   bankAccount: {
-    color: '#B0B0B0',
-    fontSize: 13,
+    color: '#888',
+    fontSize: 12,
   },
   bankBalance: {
-    color: '#66d9ef',
-    fontSize: 13,
-    fontWeight: 'bold',
-    marginTop: 2,
+    color: '#00ffcc',
+    fontSize: 12,
+    fontWeight: '500',
   },
   nextButton: {
-    backgroundColor: '#A7D7F9',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    backgroundColor: '#00ffcc',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 15,
+    marginLeft: 10,
   },
+
+  // Keypad
   keypad: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    marginBottom: 20,
+    marginTop: 'auto',
+    paddingBottom: 12,
   },
   keypadRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingHorizontal: 10,
   },
   keypadButton: {
-    width: width / 3 - 40,
-    height: width / 3 - 40,
+    width: width / 4.2,
+    height: width / 4.2,
+    backgroundColor: '#1c1c1c',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 14,
   },
   keypadButtonText: {
-    color: '#E0E0E0',
-    fontSize: 32,
-    fontWeight: 'normal',
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '600',
   },
 });
 

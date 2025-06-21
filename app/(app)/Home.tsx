@@ -17,12 +17,13 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { LineChart } from 'react-native-chart-kit';
-
+import GooglePayButton from '@google-pay/button-react';
 type RootStackParamList = {
   navigate(arg0: string): void;
   mypage: undefined;
   Camera: undefined;
   Payment: { recipientUid: string };
+  SplitBill: undefined;
 };
 
 const Home = () => {
@@ -120,7 +121,6 @@ const Home = () => {
                 onPress={() => (showBalance)?setShowBalance(false): navigation.navigate('VerifyPin', { onSuccess: () => setShowBalance(true) })}
                 style={styles.eyeIconWrapper}
               >
-
                 <MaterialIcons
                   name={showBalance ? 'remove-red-eye' : 'visibility-off'}
                   size={24}
@@ -181,11 +181,11 @@ const Home = () => {
             <MaterialIcons name="receipt" size={30} color="white" />
             <Text style={styles.gridIconText}>Pay bills</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.gridIconButton}>
-            <MaterialIcons name="mobile-friendly" size={30} color="white" />
-            <Text style={styles.gridIconText}>Mobile recharge</Text>
+          <TouchableOpacity style={styles.gridIconButton} onPress={() => navigation.navigate('Split')}>
+            <MaterialIcons name="groups" size={30} color="white" />
+            <Text style={styles.gridIconText}>Split Bill</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.gridIconButton} onPress={()=>navigation.navigate("history")}>
+          <TouchableOpacity style={styles.gridIconButton} onPress={() => navigation.navigate("history") }>
             <MaterialIcons name="history" size={30} color="white" />
             <Text style={styles.gridIconText}>Transaction history</Text>
           </TouchableOpacity>
@@ -193,74 +193,210 @@ const Home = () => {
 
         <Text style={styles.upiIdText}>UPI ID: notgirish@yobank</Text>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>People</Text>
-          <TouchableOpacity>
-            <Text style={styles.viewAllText}>View all</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-          {[...Array(5)].map((_, i) => (
-            <View key={i} style={styles.personCircle}>
-              <Image style={styles.personImage} source={require('../../assets/images/google.png')} />
-            </View>
-          ))}
-        </ScrollView>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Businesses</Text>
-          <TouchableOpacity>
-            <Text style={styles.viewAllText}>View all</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-          {[...Array(6)].map((_, i) => (
-            <View key={i} style={styles.businessCircle}>
-              <Image style={styles.businessImage} source={require('../../assets/images/google.png')} />
-            </View>
-          ))}
-        </ScrollView>
-
         <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#121212', padding: 10, paddingTop: 50 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#121212' },
-  loadingTextIndicator: { color: '#fff', marginTop: 10 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10 },
-  searchBar: { flexDirection: 'row', backgroundColor: '#1f1f1f', padding: 10, borderRadius: 10, flex: 1, marginRight: 10 },
-  searchIcon: { marginRight: 10 },
-  searchText: { color: '#fff', flex: 1 },
-  profileIcon: { paddingHorizontal: 5 },
-  scrollViewContent: { paddingHorizontal: 10 },
-  balanceContainer: { backgroundColor: '#1f1f1f', padding: 20, borderRadius: 12, marginVertical: 10 },
-  balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  balanceAmount: { fontSize: 28, color: '#fff', fontWeight: 'bold' },
-  balanceObscured: { fontSize: 28, color: '#fff', letterSpacing: 2 },
-  eyeIconWrapper: { marginLeft: 10 },
-  updatedText: { color: '#aaa', marginTop: 8, fontSize: 12 },
-  errorText: { color: 'red', fontSize: 14 },
-  graphAreaPlaceholder: { marginTop: 10, borderRadius: 16, overflow: 'hidden' },
-  scannerIconWrapper: { alignItems: 'center', marginVertical: 20 },
-  scannerIcon: { backgroundColor: '#fff', padding: 20, borderRadius: 50 },
-  gridIconsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginVertical: 20 },
-  gridIconButton: { width: '47%', backgroundColor: '#1f1f1f', padding: 15, marginBottom: 10, borderRadius: 10, alignItems: 'center' },
-  gridIconText: { color: '#fff', marginTop: 8 },
-  upiIdText: { color: '#ccc', textAlign: 'center', marginVertical: 10 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 10 },
-  sectionTitle: { color: '#fff', fontSize: 16 },
-  viewAllText: { color: '#00f' },
-  horizontalScroll: { paddingVertical: 10 },
-  personCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#333', justifyContent: 'center', alignItems: 'center', marginHorizontal: 5 },
-  personImage: { width: 40, height: 40, resizeMode: 'contain' },
-  businessCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#444', justifyContent: 'center', alignItems: 'center', marginHorizontal: 5 },
-  businessImage: { width: 40, height: 40, resizeMode: 'contain' },
-});
 
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0B0B0B',
+    paddingTop: 30,
+    paddingHorizontal: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0B0B0B',
+  },
+  loadingTextIndicator: {
+    color: '#9B9B9B',
+    fontSize: 14,
+    marginTop: 8,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111111',
+    padding: 8,
+    borderRadius: 14,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#00F9C5',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchText: {
+    color: '#FFF',
+    fontSize: 14,
+    flex: 1,
+  },
+  profileIcon: {
+    padding: 5,
+  },
+  scrollViewContent: {
+    paddingBottom: 60,
+  },
+  balanceContainer: {
+    backgroundColor: '#101010',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#00FFB2',
+    shadowColor: '#00FFD5',
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  balanceAmount: {
+    fontSize: 30,
+    color: '#00FFDD',
+    fontWeight: 'bold',
+  },
+  balanceObscured: {
+    fontSize: 30,
+    color: '#2A2A2A',
+    letterSpacing: 4,
+  },
+  eyeIconWrapper: {
+    marginLeft: 10,
+  },
+  updatedText: {
+    color: '#555555',
+    marginTop: 10,
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  errorText: {
+    color: '#FF4C4C',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  graphAreaPlaceholder: {
+    marginTop: 16,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#00FFE0',
+  },
+  scannerIconWrapper: {
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  scannerIcon: {
+    backgroundColor: '#00FFCC',
+    padding: 18,
+    borderRadius: 80,
+    shadowColor: '#00FFCC',
+    shadowOpacity: 0.5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  gridIconsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginVertical: 20,
+  },
+  gridIconButton: {
+    width: '48%',
+    backgroundColor: '#161616',
+    padding: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#00FFF6',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#00F0FF',
+  },
+  gridIconText: {
+    color: '#F5F5F5',
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  upiIdText: {
+    color: '#AFAFAF',
+    textAlign: 'center',
+    fontSize: 13,
+    letterSpacing: 1.1,
+    marginVertical: 14,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 14,
+    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  viewAllText: {
+    color: '#00FFEB',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  horizontalScroll: {
+    paddingVertical: 12,
+  },
+  personCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: '#0FF',
+  },
+  personImage: {
+    width: 34,
+    height: 34,
+    resizeMode: 'contain',
+  },
+  businessCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#323232',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: '#00FFD5',
+  },
+  businessImage: {
+    width: 34,
+    height: 34,
+    resizeMode: 'contain',
+  },
+});
 export default Home;

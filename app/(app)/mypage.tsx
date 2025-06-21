@@ -2,15 +2,15 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Ima
 import React, { useEffect, useState } from 'react';
 import { getAuth, signOut } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons'; // For icons like back, share, more_vert, copy
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from 'expo-router';
 
 const MyPage = () => {
   const navigation = useNavigation();
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [username, setUsername] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState(null);
+  const [username, setUsername] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -19,12 +19,11 @@ const MyPage = () => {
 
       if (currentUser) {
         try {
-          // Listen for real-time updates to the user document
           const subscriber = firestore()
             .collection('users')
             .doc(currentUser.uid)
             .onSnapshot(documentSnapshot => {
-              if (documentSnapshot.exists()) {
+              if (documentSnapshot.exists) {
                 const userData = documentSnapshot.data();
                 setUserEmail((userData && userData.email) || currentUser.email);
                 setUsername((userData && userData.username) || 'N/A');
@@ -41,7 +40,6 @@ const MyPage = () => {
               setLoading(false);
             });
 
-          // Unsubscribe on unmount
           return () => subscriber();
 
         } catch (e) {
@@ -50,7 +48,6 @@ const MyPage = () => {
           setLoading(false);
         }
       } else {
-        // No user logged in
         setLoading(false);
         setError('No user is currently logged in.');
       }
@@ -58,11 +55,11 @@ const MyPage = () => {
 
     fetchUserData();
   }, []);
+
   const handleLogout = () => {
     signOut(getAuth())
       .then(() => {
         console.log('User signed out!');
-
       })
       .catch((e) => {
         console.error('Error signing out:', e);
@@ -81,7 +78,6 @@ const MyPage = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.navigate('Home')}>
           <MaterialIcons name="arrow-back" size={24} color="#E0E0E0" />
@@ -99,23 +95,20 @@ const MyPage = () => {
       {error ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => setLoading(true) /* Re-trigger fetch */}>
+          <TouchableOpacity style={styles.retryButton} onPress={() => setLoading(true)}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <>
-          {/* QR Code Section */}
           <View style={styles.qrCodeContainer}>
             <View style={styles.qrFrame}>
-              {/* Placeholder for QR Code image */}
               <Image
-                source={{ uri: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + (userEmail || 'default') }} // Example QR code generation
+                source={{ uri: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + (userEmail || 'default') }}
                 style={styles.qrImage}
               />
-              {/* Placeholder for user profile picture in the middle of QR */}
               <Image
-                source={require('../../assets/images/google.png')} // Replace with actual user profile image logic
+                source={require('../../assets/images/google.png')}
                 style={styles.profilePicOverlay}
               />
             </View>
@@ -123,31 +116,25 @@ const MyPage = () => {
             <View style={styles.upiIdContainer}>
               <Text style={styles.upiIdText}>{userEmail ? userEmail.split('@')[0] : 'notgirish'}@yobank</Text>
               <TouchableOpacity style={styles.copyIcon}>
-                <MaterialIcons name="content-copy" size={16} color="#888" />
+                <MaterialIcons name="content-copy" size={16} color="#00ffe0" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.phoneNumberText}>+91 98762 45123</Text>
+            <Text style={styles.phoneNumberText}>📱 +91 98762 45123</Text>
           </View>
 
-          {/* Rewards Section */}
           <View style={styles.rewardsContainer}>
             <MaterialIcons name="emoji-events" size={24} color="#FFD700" style={styles.rewardIcon} />
-            <Text style={styles.rewardsText}>₹191 Rewards earned</Text>
+            <Text style={styles.rewardsText}>🎉 ₹191 Rewards earned</Text>
           </View>
-          <Text style={styles.inviteText}>Invite friends, both of you get ₹20</Text>
+          <Text style={styles.inviteText}>🤝 Invite friends, both get ₹20</Text>
 
-          {/* Placeholder for "methods" or other sections */}
-          <View style={styles.bottomSectionPlaceholder}>
-            <TouchableOpacity style={styles.bottomSectionPlaceholder} onPress={()=>{navigation.navigate("Pin")}}>
-            <MaterialIcons name="password" style={styles.method_Icon} size={50} color="white"/>
-            <Text style={styles.bottomSectionText}>SET PIN</Text>
-        </TouchableOpacity>
-            {/* Additional content can go here */}
-          </View>
+          <TouchableOpacity style={styles.bottomSectionPlaceholder} onPress={() => { navigation.navigate("Pin") }}>
+            <MaterialIcons name="password" style={styles.method_Icon} size={50} color="#fff" />
+            <Text style={styles.bottomSectionText}>🔐 SET PIN</Text>
+          </TouchableOpacity>
 
-          {/* Logout Button at the bottom or integrate into a settings menu */}
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Text style={styles.logoutButtonText}>Log Out</Text>
+            <Text style={styles.logoutButtonText}>🚪 Log Out</Text>
           </TouchableOpacity>
         </>
       )}
@@ -158,15 +145,15 @@ const MyPage = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1E1E', // Dark background matching your theme
+    backgroundColor: '#121212',
     paddingHorizontal: 20,
-    paddingTop: 50, // Adjust for status bar
+    paddingTop: 50,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#121212',
   },
   loadingText: {
     color: '#E0E0E0',
@@ -209,22 +196,22 @@ const styles = StyleSheet.create({
     marginLeft: 20,
   },
   qrCodeContainer: {
-    backgroundColor: '#282828', // Dark card background for the QR section
+    backgroundColor: '#1a1a1a',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 15,
-    elevation: 10,
+    borderColor: '#00ffe0',
+    borderWidth: 2,
+    shadowColor: '#00ffe0',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 12,
   },
   qrFrame: {
     width: 200,
     height: 200,
-    borderWidth: 4,
-    borderColor: 'transparent', // Initially transparent, will be overlaid by corners
     borderRadius: 10,
     marginBottom: 20,
     justifyContent: 'center',
@@ -234,7 +221,7 @@ const styles = StyleSheet.create({
   qrImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 6, // Slightly smaller radius than frame for QR code itself
+    borderRadius: 8,
   },
   profilePicOverlay: {
     position: 'absolute',
@@ -242,8 +229,8 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     borderWidth: 2,
-    borderColor: '#282828', // Matches container background
-    zIndex: 1, // Ensures it's above the QR code
+    borderColor: '#1a1a1a',
+    zIndex: 1,
   },
   usernameText: {
     fontSize: 24,
@@ -258,33 +245,35 @@ const styles = StyleSheet.create({
   },
   upiIdText: {
     fontSize: 16,
-    color: '#888',
+    color: '#00ffe0',
     marginRight: 8,
   },
-  method_Icon:{
-    alignItems:"center",
-    justifyContent:"center",
+  method_Icon: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   copyIcon: {
     padding: 5,
   },
   phoneNumberText: {
     fontSize: 16,
-    color: '#888',
+    color: '#ccc',
   },
   rewardsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#282828',
+    backgroundColor: '#1a1a1a',
     borderRadius: 12,
     paddingVertical: 15,
     paddingHorizontal: 20,
     marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    borderColor: '#FFD700',
+    borderWidth: 1,
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 6,
   },
   rewardIcon: {
     marginRight: 10,
@@ -292,40 +281,43 @@ const styles = StyleSheet.create({
   rewardsText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFD700', // Gold color for rewards
+    color: '#FFD700',
   },
   inviteText: {
     fontSize: 14,
-    color: '#888',
+    color: '#aaa',
     textAlign: 'center',
     marginBottom: 30,
   },
   bottomSectionPlaceholder: {
-    backgroundColor: '#282828',
+    backgroundColor: '#1a1a1a',
     borderRadius: 16,
     padding: 20,
-    minHeight: 100, // Just a placeholder height
+    minHeight: 100,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    borderColor: '#00ffe0',
+    borderWidth: 2,
+    shadowColor: '#00ffe0',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   bottomSectionText: {
     color: '#E0E0E0',
     fontSize: 18,
     fontWeight: 'bold',
+    marginTop: 10,
   },
   logoutButton: {
-    backgroundColor: '#4285F4', // Red for logout
+    backgroundColor: '#ff4444',
     paddingVertical: 15,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 'auto', // Pushes the button to the bottom
-    marginBottom: 20, // Some bottom padding
+    marginTop: 'auto',
+    marginBottom: 20,
   },
   logoutButtonText: {
     color: 'white',
