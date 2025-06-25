@@ -29,7 +29,8 @@ type RootStackParamList = {
   history: undefined;
   PayZappWallet: undefined;
   PassbookAndInsights: undefined;
-  contact: undefined; // Assuming 'contact' is a route for the scanner
+  contact: undefined;
+  Request:undefined;
 };
 
 const screenWidth = Dimensions.get('window').width;
@@ -143,7 +144,7 @@ const Home = () => {
     { name: 'Bank Transfer', icon: 'account-balance', screen: 'BankTransfer' },
     { name: 'Check Balance', icon: 'account-balance-wallet', screen: 'history' },
     { name: 'Bill &\nRecharges', icon: 'receipt_long', screen: 'Split' },
-    { name: 'Offers &\nCashpoints', icon: 'local-offer', screen: 'history' },
+    { name: 'Offers &\nCashpoints', icon: 'local-offer', screen: 'Request' },
     { name: 'PayZapp\nWallet', icon: 'wallet', screen: 'PayZappWallet' },
     { name: 'Passbook &\nInsights', icon: 'book', screen: 'PassbookAndInsights' },
   ];

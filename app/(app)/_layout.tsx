@@ -13,6 +13,7 @@ import Pin from './Pin';
 import VerifyPin from './VerifyPin';
 import SplitBill from './SplitBill';
 import RequestMoney from './RequestMoney';
+import PayRequest from './Payrequest';
 
 const Tab = createBottomTabNavigator();
 
@@ -34,9 +35,10 @@ const RootLayout = () => {
           component={Camera} 
            options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
-        <Tab.Screen 
+       
+         <Tab.Screen 
           name="Request" 
-          component={RequestMoney} 
+          component={PayRequest} 
            options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
 

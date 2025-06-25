@@ -12,16 +12,18 @@ import {
   Alert
 } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
-import auth from '@react-native-firebase/auth'; // Import auth for current user UID
+import auth from '@react-native-firebase/auth';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import 'react-native-get-random-values'; // Needed for uuid v4
+import { v4 as uuidv4 } from 'uuid'; // Import uuid for unique IDs
 
 // Define a type for participants to enhance type safety
 type Participant = {
   uid: string;
   name: string;
-  share: number; // Changed to number as it's a calculated value
+  share: number;
 };
 
 // Define a type for dropdown items
@@ -32,19 +34,19 @@ type DropdownItem = {
 
 const SplitBill = () => {
   const [totalAmount, setTotalAmount] = useState('');
-  const [requestDescription, setRequestDescription] = useState(''); // New state for bill description
+  const [requestDescription, setRequestDescription] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [items, setItems] = useState<DropdownItem[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [isSendingRequests, setIsSendingRequests] = useState(false); // New state for sending requests loading
-  const [sharesCalculated, setSharesCalculated] = useState(false); // New state to track if shares are calculated
+  const [isSendingRequests, setIsSendingRequests] = useState(false);
+  const [sharesCalculated, setSharesCalculated] = useState(false);
 
   const currentUserUid = auth().currentUser?.uid;
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
 
-  // 1. Fetch all users for dropdown AND current user's name
+  // Fetch all users for dropdown AND current user's name
   useEffect(() => {
     const fetchUserData = async () => {
       setLoadingUsers(true);
@@ -66,8 +68,8 @@ const SplitBill = () => {
         setItems(fetchedDropdownItems);
         setCurrentUsername(fetchedCurrentUsername);
 
-        if (!fetchedCurrentUsername) {
-            Alert.alert("User Data Missing", "Could not fetch your username. Please ensure you are logged in correctly.");
+        if (!fetchedCurrentUsername && currentUserUid) {
+            Alert.alert("User Data Missing", "Could not fetch your username. Please ensure your profile is complete.");
         }
 
       } catch (error) {
@@ -78,7 +80,7 @@ const SplitBill = () => {
       }
     };
     fetchUserData();
-  }, [currentUserUid]); // Depend on currentUserUid
+  }, [currentUserUid]);
 
   const addParticipant = () => {
     if (!selectedUser) {
@@ -98,19 +100,17 @@ const SplitBill = () => {
 
     const user = items.find(u => u.value === selectedUser);
     if (user) {
-      // Initialize share as 0, it will be calculated later
       setParticipants([...participants, { uid: user.value, name: user.label, share: 0 }]);
-      setSelectedUser(null); // Clear selection after adding
-      setSharesCalculated(false); // Reset calculation status
+      setSelectedUser(null);
+      setSharesCalculated(false);
     }
   };
 
   const removeParticipant = (uidToRemove: string) => {
     setParticipants(prev => prev.filter(p => p.uid !== uidToRemove));
-    setSharesCalculated(false); // Reset calculation status
+    setSharesCalculated(false);
   };
 
-  // Renamed from calculateShare to better reflect its purpose: local calculation
   const calculateEqualSharesLocally = () => {
     const total = parseFloat(totalAmount);
     if (isNaN(total) || total <= 0) {
@@ -123,14 +123,13 @@ const SplitBill = () => {
     }
 
     const shareValue = (total / participants.length);
-    // Update participants with calculated share, maintaining number type
     setParticipants(participants.map(p => ({ ...p, share: parseFloat(shareValue.toFixed(2)) })));
-    setSharesCalculated(true); // Mark shares as calculated
+    setSharesCalculated(true);
     Alert.alert('Shares Calculated', `Each person owes ₹${shareValue.toFixed(2)}.`);
   };
 
-  // New function to send requests to Firestore
   const sendBillRequests = async () => {
+    console.log("5");
     if (!sharesCalculated) {
       Alert.alert('Calculate First', 'Please calculate the shares before sending requests.');
       return;
@@ -147,38 +146,80 @@ const SplitBill = () => {
         Alert.alert('Authentication Error', 'Your user data is not fully loaded. Please try again.');
         return;
     }
-
+console.log("3");
     setIsSendingRequests(true);
     const batch = firestore().batch();
-    const billId = `bill_${Date.now()}`; // Unique ID for this bill split session
-
+    const commonBillId = uuidv4(); // Generate a unique ID for this entire split request session
+console.log("2");
     try {
-      for (const participant of participants) {
-        const requestDocRef = firestore().collection('billRequests').doc(); // Auto-generate doc ID
-        batch.set(requestDocRef, {
-          billId: billId,
+      console.log('Sending bill requests...');
+      console.log('Common Bill ID:', commonBillId);
+      console.log('Current User UID (Sender):', currentUserUid);
+      console.log('Current Username (Sender):', currentUsername);
+      console.log('Total Amount:', totalAmount);
+      console.log('Description:', requestDescription.trim());
+      console.log('Participants:', participants);
+
+      // 1. Update Sender's (current user's) document
+      const senderDocRef = firestore().collection('users').doc(currentUserUid);
+      const senderBillRequestPath = `transhistory.billRequests.${commonBillId}`; // Path to the nested map entry
+      batch.update(senderDocRef, {
+        [senderBillRequestPath]: {
+          type: 'sent', // Mark as a sent request
+          billId: commonBillId,
           senderUid: currentUserUid,
           senderName: currentUsername,
-          recipientUid: participant.uid,
-          recipientName: participant.name,
-          amountRequested: participant.share,
+          totalAmount: parseFloat(totalAmount), // Store total amount in sender's record for context
           description: requestDescription.trim(),
-          status: 'pending', // Initial status
+          status: 'pending',
           createdAt: firestore.FieldValue.serverTimestamp(),
           updatedAt: firestore.FieldValue.serverTimestamp(),
+          recipients: participants.map(p => ({ // Store details for each recipient within the sender's record
+              uid: p.uid,
+              name: p.name,
+              share: p.share
+          }))
+        }
+      });
+      
+      console.log("1");
+
+      // 2. Update Each Recipient's document
+      for (const participant of participants) {
+        const recipientDocRef = firestore().collection('users').doc(participant.uid);
+        const recipientBillRequestPath = `transhistory.billRequests.${commonBillId}`; // Path to the nested map entry
+        batch.update(recipientDocRef, {
+          [recipientBillRequestPath]: {
+            type: 'received', // Mark as a received request
+            billId: commonBillId,
+            senderUid: currentUserUid,
+            senderName: currentUsername,
+            recipientUid: participant.uid,
+            recipientName: participant.name,
+            amountRequested: participant.share,
+            description: requestDescription.trim(),
+            status: 'pending',
+            createdAt: firestore.FieldValue.serverTimestamp(),
+            updatedAt: firestore.FieldValue.serverTimestamp(),
+          }
         });
       }
-
+      console.log("10");
+      console.log('Committing batch...');
       await batch.commit();
+      console.log('Batch committed successfully!');
+
       Alert.alert('Success', 'Bill split requests sent successfully!');
       // Reset form after sending
       setTotalAmount('');
       setRequestDescription('');
       setParticipants([]);
       setSharesCalculated(false);
-    } catch (error) {
+    } catch (error: any) { // Use 'any' for error type if not strictly typed
       console.error('Error sending bill requests:', error);
-      Alert.alert('Error', 'Failed to send requests. Please try again.');
+      console.error('Error Code:', error.code);
+      console.error('Error Message:', error.message);
+      Alert.alert('Error', `Failed to send requests: ${error.message || 'Please check console for details.'}`);
     } finally {
       setIsSendingRequests(false);
     }
@@ -211,11 +252,11 @@ const SplitBill = () => {
             value={totalAmount}
             onChangeText={(text) => {
               setTotalAmount(text);
-              setSharesCalculated(false); // Reset calculation if amount changes
+              setSharesCalculated(false);
             }}
           />
 
-          <Text style={styles.sectionTitle}>Bill Description</Text> {/* New input */}
+          <Text style={styles.sectionTitle}>Bill Description</Text>
           <TextInput
             style={styles.input}
             placeholder="e.g., Dinner at ABC, Rent for May"
@@ -254,7 +295,6 @@ const SplitBill = () => {
               <Text style={styles.participantName}>{p.name}</Text>
               <View style={styles.shareInfo}>
                 <Text style={styles.shareCurrency}>₹</Text>
-                {/* Display share as 2 decimal places */}
                 <Text style={styles.shareText}>{p.share.toFixed(2) || '0.00'}</Text>
               </View>
               <TouchableOpacity onPress={() => removeParticipant(p.uid)} style={styles.removeButton}>
@@ -443,7 +483,7 @@ const styles = StyleSheet.create({
   },
   calcButton: {
     flexDirection: 'row',
-    backgroundColor: '#4CAF50', // Green for calculate button
+    backgroundColor: '#4CAF50',
     paddingVertical: 16,
     borderRadius: 15,
     alignItems: 'center',
@@ -463,15 +503,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 19,
   },
-  // New styles for the Send Requests button
   sendRequestsButton: {
     flexDirection: 'row',
-    backgroundColor: '#1A73E8', // PayZapp blue
+    backgroundColor: '#1A73E8',
     paddingVertical: 16,
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20, // Reduced margin from calcButton for sequential buttons
+    marginTop: 20,
     shadowColor: '#1A73E8',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
@@ -479,7 +518,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   sendRequestsButtonDisabled: {
-    backgroundColor: '#B0B0B0', // Grey when disabled
+    backgroundColor: '#B0B0B0',
   },
   sendIcon: {
     marginRight: 10,
