@@ -1,17 +1,18 @@
 import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { useEffect, useState } from "react";
+import { SetStateAction, useEffect, useState } from "react";
 import { Stack } from "expo-router";
 
 GoogleSignin.configure({
   webClientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID,
 });
 export default function RootLayout() {
+  
   const [initializing, setInitializing] = useState(true);
   const [user, setUser] = useState();
 
   // Handle user state changes
-  function handleAuthStateChanged(user) {
+  function handleAuthStateChanged(user: SetStateAction<undefined>) {
     setUser(user);
     if (initializing) setInitializing(false);
   }

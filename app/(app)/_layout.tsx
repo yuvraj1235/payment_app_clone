@@ -12,10 +12,12 @@ import PaymentScreen from './Payment';
 import Pin from './Pin';
 import VerifyPin from './VerifyPin';
 import SplitBill from './SplitBill';
+import RequestMoney from './RequestMoney';
 
 const Tab = createBottomTabNavigator();
 
 const RootLayout = () => {
+  
   return (
   
       <Tab.Navigator>
@@ -30,6 +32,11 @@ const RootLayout = () => {
         <Tab.Screen 
           name="Camera" 
           component={Camera} 
+           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+        <Tab.Screen 
+          name="Request" 
+          component={RequestMoney} 
            options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
 

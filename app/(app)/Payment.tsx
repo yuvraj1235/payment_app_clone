@@ -27,71 +27,84 @@ const Payment = ({ route }) => {
 
   const currentUserUid = auth().currentUser?.uid;
 
-  const pay = async () => {
-    if (!amount || Number(amount) <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount to pay.');
-      return;
-    }
+ const pay = async () => {
+  if (!amount || Number(amount) <= 0) {
+    Alert.alert('Invalid Amount', 'Please enter a valid amount to pay.');
+    return;
+  }
 
-    if (!recipientUid) { // Ensure we have a recipient UID
-      Alert.alert('No Recipient', 'Cannot process payment without a recipient ID.');
-      return;
-    }
+  if (!recipientUid) {
+    Alert.alert('No Recipient', 'Cannot process payment without a recipient ID.');
+    return;
+  }
 
-    if (currentUserUid === recipientUid) {
-      Alert.alert('Error', 'Cannot send money to yourself.');
-      return;
-    }
+  if (currentUserUid === recipientUid) {
+    Alert.alert('Error', 'Cannot send money to yourself.');
+    return;
+  }
 
-    setIsProcessingPayment(true); // Set loading state for payment
-    const amountToPay = Number(amount);
+  setIsProcessingPayment(true);
+  const amountToPay = Number(amount);
+  // Generate a unique timestamp for the transaction key
+  const transactionId = new Date().toISOString().replace(/[^0-9]/g, ''); // Unique ID based on timestamp
 
-    try {
-      await firestore().runTransaction(async (transaction) => {
+  try {
+    await firestore().runTransaction(async (transaction) => {
+      const senderDocRef = firestore().collection('users').doc(currentUserUid!); // Add ! for non-null assertion
+      const senderSnapshot = await transaction.get(senderDocRef);
 
-        const senderDocRef = firestore().collection('users').doc(currentUserUid);
-        const senderSnapshot = await transaction.get(senderDocRef);
+      if (!senderSnapshot.exists) {
+        throw new Error("Sender's account does not exist!");
+      }
 
-        if (!senderSnapshot.exists) {
-          throw new Error("Sender's account does not exist!");
-        }
+      const senderBalance = senderSnapshot.data()?.balance || 0; // Use optional chaining
+      if (senderBalance < amountToPay) {
+        throw new Error("Insufficient balance.");
+      }
 
-        const senderBalance = senderSnapshot.data().balance || 0;
-        if (senderBalance < amountToPay) {
-          throw new Error("Insufficient balance.");
-        }
-
-        transaction.update(senderDocRef, {
-          balance: firestore.FieldValue.increment(-amountToPay),
-          transhistory: firestore.FieldValue.arrayUnion(-amountToPay),
-        });
-
-        // 2. Increment recipient's balance
-        const recipientDocRef = firestore().collection('users').doc(recipientUid);
-        const recipientSnapshot = await transaction.get(recipientDocRef);
-
-        if (!recipientSnapshot.exists) {
-          throw new Error("Recipient account not found for the scanned ID.");
-        }
-        transaction.update(recipientDocRef, {
-          balance: firestore.FieldValue.increment(amountToPay),
-          transhistory: firestore.FieldValue.arrayUnion(amountToPay),
-        });
+      // Update sender's balance and add transaction to their map
+      transaction.update(senderDocRef, {
+        balance: firestore.FieldValue.increment(-amountToPay),
+        [`transhistory.${transactionId}`]: { // Use template literals for dynamic field name
+          amount: -amountToPay, // Store as negative for debit
+          type: 'debit',
+          recipientUid: recipientUid,
+          recipientName: recipientUsername || 'Unknown Recipient',
+          timestamp: firestore.FieldValue.serverTimestamp(), // Use server timestamp for consistency
+        },
       });
 
-      Alert.alert('Success', `Successfully paid ₹${formatAmount(amount)} to ${recipientUsername}.`);
-      setAmount(''); // Clear amount after successful payment
-      // Re-fetch current user's balance to reflect change
-      fetchCurrentUserDetails(currentUserUid);
+      const recipientDocRef = firestore().collection('users').doc(recipientUid);
+      const recipientSnapshot = await transaction.get(recipientDocRef);
 
-    } catch (error: any) {
-      console.error("Error making payment: ", error);
-      Alert.alert('Payment Failed', error.message || 'There was an error processing your payment. Please try again.');
-    } finally {
-      setIsProcessingPayment(false); // Reset loading state
-    }
-  };
+      if (!recipientSnapshot.exists) {
+        throw new Error("Recipient account not found for the scanned ID.");
+      }
 
+      // Update recipient's balance and add transaction to their map
+      transaction.update(recipientDocRef, {
+        balance: firestore.FieldValue.increment(amountToPay),
+        [`transhistory.${transactionId}`]: { // Use the same transactionId
+          amount: amountToPay, // Store as positive for credit
+          type: 'credit',
+          senderUid: currentUserUid,
+          senderName: currentUsername || 'Unknown Sender',
+          timestamp: firestore.FieldValue.serverTimestamp(), // Use server timestamp for consistency
+        },
+      });
+    });
+
+    Alert.alert('Success', `Successfully paid ₹${formatAmount(amount)} to ${recipientUsername}.`);
+    setAmount('');
+    fetchCurrentUserDetails(currentUserUid);
+
+  } catch (error: any) {
+    console.error("Error making payment: ", error);
+    Alert.alert('Payment Failed', error.message || 'There was an error processing your payment. Please try again.');
+  } finally {
+    setIsProcessingPayment(false);
+  }
+};
   // Function to fetch current user's details
   const fetchCurrentUserDetails = (uid: string | undefined) => {
     if (!uid) {
@@ -296,11 +309,10 @@ const Payment = ({ route }) => {
     </View>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d0d0d',
+    backgroundColor: '#F0F2F5', // Light background color for the screen (PayZapp theme)
     paddingHorizontal: 16,
     paddingTop: 32,
   },
@@ -317,7 +329,7 @@ const styles = StyleSheet.create({
   recipientContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#181818',
+    backgroundColor: '#FFFFFF', // White card background
     borderRadius: 14,
     padding: 12,
     marginBottom: 20,
@@ -326,14 +338,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#2c2c2c',
+    backgroundColor: '#EBF2FB', // Light blue for avatar background
     marginRight: 12,
   },
   recipientDetails: {
     flex: 1,
   },
   recipientName: {
-    color: '#fff',
+    color: '#333333', // Dark text on light background
     fontSize: 16,
     fontWeight: '600',
   },
@@ -343,7 +355,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   recipientPhone: {
-    color: '#aaa',
+    color: '#666666', // Medium grey text
     fontSize: 12,
   },
 
@@ -356,13 +368,13 @@ const styles = StyleSheet.create({
   },
   currencySymbol: {
     fontSize: 32,
-    color: '#00ffcc',
+    color: '#1A73E8', // PayZapp blue accent
     fontWeight: 'bold',
     marginRight: 4,
   },
   amountText: {
     fontSize: 48,
-    color: '#fff',
+    color: '#333333', // Dark text
     fontWeight: 'bold',
   },
 
@@ -370,7 +382,7 @@ const styles = StyleSheet.create({
   bankSelectionWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#141414',
+    backgroundColor: '#FFFFFF', // White card background
     borderRadius: 16,
     padding: 12,
     marginBottom: 24,
@@ -384,21 +396,21 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   bankName: {
-    color: '#fff',
+    color: '#333333', // Dark text
     fontSize: 14,
     fontWeight: '600',
   },
   bankAccount: {
-    color: '#888',
+    color: '#666666', // Medium grey text
     fontSize: 12,
   },
   bankBalance: {
-    color: '#00ffcc',
+    color: '#1A73E8', // PayZapp blue accent
     fontSize: 12,
     fontWeight: '500',
   },
   nextButton: {
-    backgroundColor: '#00ffcc',
+    backgroundColor: '#1A73E8', // PayZapp blue accent
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -411,6 +423,7 @@ const styles = StyleSheet.create({
   keypad: {
     marginTop: 'auto',
     paddingBottom: 12,
+    backgroundColor: '#F0F2F5', // Match screen background
   },
   keypadRow: {
     flexDirection: 'row',
@@ -421,16 +434,15 @@ const styles = StyleSheet.create({
   keypadButton: {
     width: width / 4.2,
     height: width / 4.2,
-    backgroundColor: '#1c1c1c',
+    backgroundColor: '#FFFFFF', // White keypad buttons
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 14,
   },
   keypadButtonText: {
-    color: '#fff',
+    color: '#333333', // Dark text for numbers
     fontSize: 28,
     fontWeight: '600',
   },
 });
-
 export default Payment;

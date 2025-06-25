@@ -7,199 +7,293 @@ import {
   Alert,
   Platform,
   Linking,
+  Dimensions, // Import Dimensions for responsive sizing
+  ActivityIndicator, // <--- ADDED THIS IMPORT
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useNavigation } from 'expo-router';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { SafeAreaView } from 'react-native-safe-area-context'; // For proper safe area handling
+
+const screenWidth = Dimensions.get('window').width;
+const screenHeight = Dimensions.get('window').height;
 
 type RootStackParamList = {
   mypage: undefined;
   Camera: undefined;
   Payment: { recipientUid: string };
+  // Add other routes as needed if used by navigation
 };
 
 const Camera = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<RootStackParamList>(); // Cast navigation to the defined type
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-  const [flashMode, setFlashMode] = useState('off');
+  const [flashMode, setFlashMode] = useState<'off' | 'torch'>('off'); // Explicitly type flashMode
 
-  if (!permission) return <View style={styles.permissionContainer} />;
-
-  if (!permission.granted) {
+  // Handle permission request state
+  if (!permission) {
+    // Camera permissions are still loading
     return (
       <View style={styles.permissionContainer}>
-        <Text style={styles.permissionMessage}>We need camera permission to scan QR codes.</Text>
+        <ActivityIndicator size="large" color="#1A73E8" />
+        <Text style={styles.permissionMessage}>Loading camera permissions...</Text>
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    // Camera permissions are not granted yet
+    return (
+      <View style={styles.permissionContainer}>
+        <MaterialIcons name="videocam-off" size={60} color="#B0B0B0" style={styles.permissionIcon} />
+        <Text style={styles.permissionMessage}>
+          We need your permission to access the camera for QR code scanning.
+        </Text>
         <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>Grant Permission</Text>
+          <Text style={styles.permissionButtonText}>Grant Camera Permission</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.permissionButtonSecondary} onPress={() => navigation.goBack()}>
           <Text style={styles.permissionButtonTextSecondary}>Go Back</Text>
         </TouchableOpacity>
+        {/* Provide a direct link to app settings on iOS */}
         {Platform.OS === 'ios' && (
           <TouchableOpacity style={styles.permissionButtonSecondary} onPress={() => Linking.openURL('app-settings:')}>
-            <Text style={styles.permissionButtonTextSecondary}>Open Settings</Text>
+            <Text style={styles.permissionButtonTextSecondary}>Open App Settings</Text>
           </TouchableOpacity>
         )}
       </View>
     );
   }
 
-  const handleBarCodeScanned = ({ type, data }) => {
-    setScanned(true);
-    navigation.navigate('Payment', { recipientUid: data });
+  // Handler for successful barcode scan
+  const handleBarCodeScanned = ({ data }: { type: string; data: string }) => {
+    setScanned(true); // Prevent multiple scans
+    Alert.alert(
+      "QR Code Scanned",
+      `Scanned data: ${data}`,
+      [
+        {
+          text: "OK",
+          onPress: () => {
+            // Navigate to Payment screen with the scanned data (UID)
+            navigation.navigate('Payment', { recipientUid: data });
+            setScanned(false); // Reset scanned state after navigation
+          }
+        },
+        {
+          text: "Scan Again",
+          onPress: () => setScanned(false) // Allow rescanning
+        }
+      ],
+      { cancelable: false }
+    );
   };
 
+  // Toggle flashlight mode
   const toggleFlash = () => {
     setFlashMode(current => (current === 'off' ? 'torch' : 'off'));
   };
 
+  // Handler for "My QR Code" button
   const handleShowMyQrCode = () => {
-    Alert.alert('Coming Soon', 'This will show your personal QR code.');
+    Alert.alert('My QR Code', 'This feature will show your personal QR code for others to scan. Coming soon!');
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <CameraView
         style={styles.camera}
         facing={'back'}
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned} // Only scan if not already scanned
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         enableTorch={flashMode === 'torch'}
       >
-        <View style={styles.overlayTop}>
+        {/* Header Overlay */}
+        <View style={styles.headerOverlay}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
-            <MaterialIcons name="close" size={28} color="#FFF" />
+            <MaterialIcons name="arrow-back" size={28} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.title}>Scan QR Code</Text>
+          {/* Placeholder for alignment or future action */}
+          <View style={{ width: 44 }} /> 
         </View>
 
-        <View style={styles.qrBox} />
+        {/* QR Scanning Frame */}
+        <View style={styles.qrFrameContainer}>
+          <View style={styles.qrBox} />
+          <Text style={styles.scanInstructionText}>Align QR code within the frame</Text>
+        </View>
 
-        <View style={styles.overlayBottom}>
-          <TouchableOpacity onPress={toggleFlash} style={styles.iconButton}>
-            <MaterialIcons name={flashMode === 'torch' ? 'flashlight-on' : 'flashlight-off'} size={28} color="#FFF" />
+        {/* Bottom Controls */}
+        <View style={styles.bottomControls}>
+          <TouchableOpacity onPress={toggleFlash} style={styles.controlButton}>
+            <MaterialIcons name={flashMode === 'torch' ? 'flashlight-on' : 'flashlight-off'} size={30} color="#FFF" />
+            <Text style={styles.controlButtonText}>Flash</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleShowMyQrCode} style={styles.qrButton}>
-            <Text style={styles.qrButtonText}>My QR Code</Text>
+          <TouchableOpacity onPress={handleShowMyQrCode} style={styles.controlButton}>
+            <MaterialIcons name="qr-code-2" size={30} color="#FFF" />
+            <Text style={styles.controlButtonText}>My QR Code</Text>
           </TouchableOpacity>
         </View>
       </CameraView>
+
+      {/* "Scan Again" button - only visible after a scan */}
       {scanned && (
-        <TouchableOpacity style={styles.scanAgain} onPress={() => setScanned(false)}>
-          <Text style={styles.scanAgainText}>Scan Again</Text>
+        <TouchableOpacity style={styles.scanAgainButton} onPress={() => setScanned(false)}>
+          <Text style={styles.scanAgainButtonText}>Scan Another QR Code</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  camera: { flex: 1 },
-  overlayTop: {
-    position: 'absolute',
-    top: 60,
-    left: 20,
-    right: 20,
+  container: {
+    flex: 1,
+    backgroundColor: '#000', // Black background for camera screen
+  },
+  camera: {
+    flex: 1,
+    justifyContent: 'space-between', // Distribute content vertically
+    alignItems: 'center', // Center content horizontally
+  },
+  headerOverlay: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    zIndex: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: 'rgba(0,0,0,0.4)', // Semi-transparent dark background for header
+    position: 'absolute', // Ensures it floats over the camera feed
+    top: 0,
+    zIndex: 10, // Make sure it's on top
+  },
+  closeButton: {
+    padding: 10,
+    borderRadius: 25,
+    // No background needed, let headerOverlay handle it
   },
   title: {
     color: '#FFF',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginTop: 10,
   },
-  closeButton: {
-    position: 'absolute',
-    left: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 8,
-    borderRadius: 20,
+  qrFrameContainer: {
+    flex: 1, // Allows this section to take available vertical space
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 80, // Push QR box slightly up from center to make space for bottom controls
   },
   qrBox: {
-    width: 250,
-    height: 250,
-    alignSelf: 'center',
-    marginTop: 160,
-    borderColor: '#00FFC6',
-    borderWidth: 2,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)'
+    width: screenWidth * 0.7, // 70% of screen width
+    height: screenWidth * 0.7, // Maintain aspect ratio
+    borderColor: '#1A73E8', // Vibrant blue border
+    borderWidth: 3, // Thicker border
+    borderRadius: 15, // Rounded corners for the frame
+    backgroundColor: 'transparent', // Transparent inside
+    overflow: 'hidden', // Ensures anything inside is clipped
+    justifyContent: 'center',
+    alignItems: 'center',
+    // You can add a subtle pulsing animation here for creativity if desired
   },
-  overlayBottom: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
+  scanInstructionText: {
+    color: '#FFF',
+    fontSize: 15,
+    marginTop: 20, // Space below QR box
+    backgroundColor: 'rgba(0,0,0,0.3)', // Slight background for readability
+    paddingVertical: 5,
+    paddingHorizontal: 15,
+    borderRadius: 10,
+  },
+  bottomControls: {
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
+    paddingVertical: 25, // More vertical padding
+    backgroundColor: 'rgba(0,0,0,0.4)', // Semi-transparent dark background for controls
   },
-  iconButton: {
+  controlButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 10,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 30,
+    borderRadius: 15, // Rounded button containers
   },
-  qrButton: {
-    backgroundColor: '#00FFD5',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 30,
+  controlButtonText: {
+    color: '#FFF',
+    fontSize: 13,
+    marginTop: 5,
+    fontWeight: '500',
   },
-  qrButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  scanAgain: {
+  scanAgainButton: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 100, // Position above the bottom nav (if any) or from screen bottom
     alignSelf: 'center',
-    backgroundColor: '#00FFD5',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 30,
+    backgroundColor: '#1A73E8', // Vibrant blue button
+    paddingVertical: 14, // Larger touch area
+    paddingHorizontal: 30, // Wider button
+    borderRadius: 30, // Pill shape
+    shadowColor: '#1A73E8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 11, // Ensure it's above other content
   },
-  scanAgainText: {
-    color: '#000',
+  scanAgainButtonText: {
+    color: '#FFF',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 16,
   },
+  // Permission screen styles
   permissionContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#1E1E1E'
+    backgroundColor: '#F0F2F5', // Light background matching app theme
+  },
+  permissionIcon: {
+    marginBottom: 20,
   },
   permissionMessage: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#4A4A4A',
+    fontSize: 18,
     textAlign: 'center',
-    marginBottom: 20
+    marginBottom: 25,
+    lineHeight: 25,
   },
   permissionButton: {
-    backgroundColor: '#00FFD5',
-    padding: 12,
+    backgroundColor: '#1A73E8',
+    paddingVertical: 14,
+    paddingHorizontal: 25,
     borderRadius: 10,
-    marginBottom: 10,
+    marginBottom: 15,
+    shadowColor: '#1A73E8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
   },
   permissionButtonText: {
-    color: '#000',
-    fontWeight: 'bold'
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   permissionButtonSecondary: {
-    borderColor: '#888',
+    borderColor: '#B0B0B0',
     borderWidth: 1,
-    padding: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 10,
-    marginTop: 5,
+    marginTop: 10,
   },
   permissionButtonTextSecondary: {
     color: '#888',
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '500',
   },
 });
 

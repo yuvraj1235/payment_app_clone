@@ -16,9 +16,8 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 import firestore from '@react-native-firebase/firestore';
 
 GoogleSignin.configure({
-  webClientId: process.env.WEB_CLIENT_ID, 
+  webClientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID,
 });
-
 const Google = () => {
   const navigation = useNavigation();
   // Removed unused state variables (email, showPassword, password)
@@ -140,30 +139,42 @@ export default Google;
 
 const styles = StyleSheet.create({
   googleButton: {
-    flexDirection: 'row',
-    margin: 10,
-    padding: 5,
-    borderRadius: 100,
+    backgroundColor: '#ffffff10',
+    padding: 12,
+    borderRadius: 50,
     alignSelf: 'center',
     alignItems: 'center',
-      },
+    marginTop: 12,
+    borderWidth: 1.2,
+    borderColor: '#00FFE0',
+    shadowColor: '#00FFE0',
+    shadowOpacity: 0.5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 10,
+    elevation: 10,
+  },
   googleIcon: {
     height: 50,
     width: 50,
-    borderRadius: 25, 
+    borderRadius: 25,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject, 
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10, 
+    zIndex: 10,
   },
   loadingText: {
-    color: 'white',
+    color: '#FFFFFF',
     marginTop: 10,
     fontSize: 16,
     fontFamily: 'System',
   },
-
+  googleText: {
+    textAlign: 'center',
+    color: '#aaa',
+    marginTop: 8,
+    fontSize: 12,
+  },
 });

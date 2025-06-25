@@ -123,20 +123,20 @@ const index = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a', // A deep, solid dark background
-    justifyContent: 'center', // Center content vertically
-    alignItems: 'center', // Center content horizontally
-    paddingHorizontal: 20, // Add horizontal padding to the main container
+    backgroundColor: '#0B0B0B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 255, 180, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
   },
   loadingText: {
-    color: '#fff',
+    color: '#00FFF0',
     marginTop: 10,
     fontSize: 16,
     fontFamily: 'System',
@@ -146,48 +146,53 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     padding: 25,
     borderRadius: 20,
-    backgroundColor: '#282828',
-    shadowColor: '#000',
+    backgroundColor: '#111111',
+    borderWidth: 2,
+    borderColor: '#00FFE0',
+    shadowColor: '#00FFE0',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    elevation: 10,
+    shadowOpacity: 0.7,
+    shadowRadius: 20,
+    elevation: 12,
   },
   heading: {
     fontSize: 42,
-    color: '#E0E0E0',
+    color: '#00FFF0',
     fontWeight: '700',
     marginBottom: 5,
     textAlign: 'left',
     fontFamily: 'System',
+    textShadowColor: '#00FFD5',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
   },
   inputBox: {
     height: 55,
     paddingHorizontal: 18,
-    color: '#E0E0E0',
+    color: '#00FFD0',
     marginTop: 25,
-    backgroundColor: '#3a3a3a', // Darker input background for better contrast with contentContainer
+    backgroundColor: '#1A1A1A',
     fontSize: 18,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#4a4a4a', // A slightly lighter border
+    borderWidth: 1.5,
+    borderColor: '#00FFE0',
     fontFamily: 'System',
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#3a3a3a', // Darker input background
+    backgroundColor: '#1A1A1A',
     borderRadius: 12,
     marginTop: 15,
     paddingHorizontal: 18,
     height: 55,
-    borderWidth: 1,
-    borderColor: '#4a4a4a',
+    borderWidth: 1.5,
+    borderColor: '#00FFE0',
   },
   passwordInput: {
     flex: 1,
     fontSize: 18,
-    color: '#E0E0E0',
+    color: '#00FFD5',
     fontFamily: 'System',
   },
   eyeIcon: {
@@ -201,25 +206,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   signUpText: {
-    color: '#75B6E4',
+    color: '#00FFE0',
     fontWeight: '600',
     fontSize: 15,
     textDecorationLine: 'none',
     fontFamily: 'System',
   },
   button: {
-    backgroundColor: '#66d9ef',
+    backgroundColor: '#00FFCC',
     borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     width: 60,
     height: 60,
-    shadowColor: '#66d9ef',
+    shadowColor: '#00FFE0',
     shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 10,
   },
 });
+
 
 export default index;
