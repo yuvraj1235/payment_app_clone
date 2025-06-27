@@ -141,7 +141,7 @@ const Home = () => {
   const gridItems = [
     { name: 'Scan any QR', icon: 'qr-code-scanner', screen: 'Camera' },
     { name: 'Pay Anyone', icon: 'payments', screen: 'contact' },
-    { name: 'Bank Transfer', icon: 'account-balance', screen: 'BankTransfer' },
+    { name: 'Bank Transfer', icon: 'account-balance', screen: 'Balance' },
     { name: 'Check Balance', icon: 'account-balance-wallet', screen: 'history' },
     { name: 'Bill &\nRecharges', icon: 'receipt_long', screen: 'Split' },
     { name: 'Offers &\nCashpoints', icon: 'local-offer', screen: 'Request' },

@@ -5,7 +5,7 @@ import firestore from '@react-native-firebase/firestore';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from 'expo-router'; // Ensure this import is correct for your setup
 import { SafeAreaView } from 'react-native-safe-area-context'; // Better for handling notches/status bars
-
+import { router } from 'expo-router';
 const screenWidth = Dimensions.get('window').width;
 
 const MyPage = () => {
@@ -140,9 +140,9 @@ const MyPage = () => {
       ) : (
         <View style={styles.contentArea}>
           {/* View QR Code Card */}
-          <TouchableOpacity style={styles.infoCard} activeOpacity={0.8}> {/* Increased activeOpacity */}
-            <MaterialIcons name="qr-code-scanner" size={26} color="#4A4A4A" style={styles.infoCardIcon} /> {/* Larger icon */}
-            <Text style={styles.infoCardText}>View QR code</Text>
+          <TouchableOpacity style={styles.infoCard} activeOpacity={0.8} onPress={() => router.push('Pin')}> {/* Increased activeOpacity */}
+            <MaterialIcons name="password" size={26} color="#4A4A4A" style={styles.infoCardIcon} /> {/* Larger icon */}
+            <Text style={styles.infoCardText}>Set PIN</Text>
             <MaterialIcons name="keyboard-arrow-right" size={26} color="#B0B0B0" style={styles.infoCardArrow} /> {/* Larger icon */}
           </TouchableOpacity>
 
@@ -173,7 +173,7 @@ const MyPage = () => {
           {/* Logout */}
           <TouchableOpacity onPress={handleLogout} style={styles.infoCard} activeOpacity={0.8}>
             <MaterialIcons name="logout" size={26} color="#4A4A4A" style={styles.infoCardIcon} /> {/* Larger icon */}
-            <Text style={styles.infoCardText}>Logout of your PayZapp account</Text>
+            <Text style={styles.infoCardText}>Logout </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -215,6 +215,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
+    
   },
   retryButtonText: {
     color: '#fff',
@@ -225,12 +226,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 280, // Increased height for more pronounced top section
     backgroundColor: '#3F51B5', // A deeper, more vibrant indigo blue
-    // Using a single color to simulate the gradient as complex gradients require external libraries.
-    // If you have `expo-linear-gradient` installed, you can replace this View with:
-    // <LinearGradient colors={['#5C6BC0', '#886CE3']} style={styles.topBackground}>
     borderBottomLeftRadius: 40, // More pronounced curve
     borderBottomRightRadius: 40, // More pronounced curve
     overflow: 'hidden',
+    marginBottom: 50,
   },
   header: {
     flexDirection: 'row',
@@ -267,6 +266,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 10,
     elevation: 8,
+
   },
   addPhotoIconWrapper: {
     position: 'absolute',

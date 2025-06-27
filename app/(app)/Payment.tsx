@@ -1,110 +1,164 @@
+// Payment.tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  Alert,
+  ActivityIndicator
+} from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { useNavigation, useLocalSearchParams } from 'expo-router';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'; // Import RouteProp
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
+import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore'; // Import for Timestamp type
 
 const { width } = Dimensions.get('window');
 
-const Payment = ({ route }) => {
+// Define the type for the route parameters for the 'Payment' screen
+type PaymentRouteParams = {
+  recipientUid: string;
+  amountToPay?: string | number; // Optional as it might not always be passed
+  billId?: string; // Optional bill ID for updating status
+  billDescription?: string; // Optional description for context
+};
+
+// Define the type for the route object
+type PaymentScreenRouteProp = RouteProp<{ Payment: PaymentRouteParams }, 'Payment'>;
+
+const Payment = () => {
   const navigation = useNavigation();
-  const params = useLocalSearchParams();
-  const { recipientUid } = route.params;
-  useEffect(() => {
-    console.log("Received recipientUid:", recipientUid); // Log to verify if it's passed correctly
-  }, [recipientUid]);
+  const route = useRoute<PaymentScreenRouteProp>(); // Use RouteProp for type safety
+  const { recipientUid, amountToPay, billId, billDescription } = route.params ?? {}; // Destructure params with nullish coalescing
 
   const [amount, setAmount] = useState('');
-  const [mybal, setMyBal] = useState(null);
-  const [recipientEmail, setRecipientEmail] = useState(null);
-  const [currentUserEmail, setCurrentUserEmail] = useState(null);
-  const [currentUsername, setCurrentUsername] = useState(null);
-  const [recipientUsername, setRecipientUsername] = useState(null);
+  const [mybal, setMyBal] = useState<number | null>(null); // Explicitly type mybal
+  const [recipientEmail, setRecipientEmail] = useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [recipientUsername, setRecipientUsername] = useState<string | null>(null);
   const [selectedBank, setSelectedBank] = useState({ name: 'HDFC Bank', lastDigits: '0123' });
   const [isLoadingRecipient, setIsLoadingRecipient] = useState(true);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const currentUserUid = auth().currentUser?.uid;
 
- const pay = async () => {
-  if (!amount || Number(amount) <= 0) {
-    Alert.alert('Invalid Amount', 'Please enter a valid amount to pay.');
-    return;
-  }
+  // Effect to pre-fill amount if passed from PayRequest screen
+  useEffect(() => {
+    if (amountToPay) {
+      setAmount(String(amountToPay));
+    }
+  }, [amountToPay]); // Depend on amountToPay
 
-  if (!recipientUid) {
-    Alert.alert('No Recipient', 'Cannot process payment without a recipient ID.');
-    return;
-  }
+  const pay = async () => {
+    if (!amount || Number(amount) <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid amount to pay.');
+      return;
+    }
 
-  if (currentUserUid === recipientUid) {
-    Alert.alert('Error', 'Cannot send money to yourself.');
-    return;
-  }
+    if (!recipientUid) {
+      Alert.alert('No Recipient', 'Cannot process payment without a recipient ID. Please go back and select a recipient.');
+      return;
+    }
 
-  setIsProcessingPayment(true);
-  const amountToPay = Number(amount);
-  // Generate a unique timestamp for the transaction key
-  const transactionId = new Date().toISOString().replace(/[^0-9]/g, ''); // Unique ID based on timestamp
+    if (currentUserUid === recipientUid) {
+      Alert.alert('Error', 'Cannot send money to yourself.');
+      return;
+    }
 
-  try {
-    await firestore().runTransaction(async (transaction) => {
-      const senderDocRef = firestore().collection('users').doc(currentUserUid!); // Add ! for non-null assertion
-      const senderSnapshot = await transaction.get(senderDocRef);
+    setIsProcessingPayment(true);
+    const amountToPayNum = Number(amount);
+    // Generate a unique timestamp for the transaction key
+    const transactionId = new Date().toISOString().replace(/[^0-9]/g, '');
 
-      if (!senderSnapshot.exists) {
-        throw new Error("Sender's account does not exist!");
-      }
+    try {
+      await firestore().runTransaction(async (transaction) => {
+        // Ensure currentUserUid is available before proceeding with transaction
+        if (!currentUserUid) {
+          throw new Error("Current user not authenticated for transaction.");
+        }
 
-      const senderBalance = senderSnapshot.data()?.balance || 0; // Use optional chaining
-      if (senderBalance < amountToPay) {
-        throw new Error("Insufficient balance.");
-      }
+        const senderDocRef = firestore().collection('users').doc(currentUserUid);
+        const senderSnapshot = await transaction.get(senderDocRef);
 
-      // Update sender's balance and add transaction to their map
-      transaction.update(senderDocRef, {
-        balance: firestore.FieldValue.increment(-amountToPay),
-        [`transhistory.${transactionId}`]: { // Use template literals for dynamic field name
-          amount: -amountToPay, // Store as negative for debit
-          type: 'debit',
-          recipientUid: recipientUid,
-          recipientName: recipientUsername || 'Unknown Recipient',
-          timestamp: firestore.FieldValue.serverTimestamp(), // Use server timestamp for consistency
-        },
+        if (!senderSnapshot.exists) {
+          throw new Error("Sender's account does not exist!");
+        }
+
+        const senderBalance = senderSnapshot.data()?.balance || 0;
+        if (senderBalance < amountToPayNum) {
+          throw new Error("Insufficient balance.");
+        }
+
+        // Update sender's balance and add transaction to their map
+        transaction.update(senderDocRef, {
+          balance: firestore.FieldValue.increment(-amountToPayNum),
+          [`transhistory.${transactionId}`]: {
+            amount: -amountToPayNum, // Store as negative for debit
+            type: 'debit',
+            recipientUid: recipientUid,
+            recipientName: recipientUsername || 'Unknown Recipient',
+            timestamp: firestore.FieldValue.serverTimestamp(),
+          },
+        });
+
+        const recipientDocRef = firestore().collection('users').doc(recipientUid);
+        const recipientSnapshot = await transaction.get(recipientDocRef);
+
+        if (!recipientSnapshot.exists) {
+          throw new Error("Recipient account not found for the provided ID.");
+        }
+
+        // Update recipient's balance and add transaction to their map
+        transaction.update(recipientDocRef, {
+          balance: firestore.FieldValue.increment(amountToPayNum),
+          [`transhistory.${transactionId}`]: { // Use the same transactionId
+            amount: amountToPayNum, // Store as positive for credit
+            type: 'credit',
+            senderUid: currentUserUid,
+            senderName: currentUsername || 'Unknown Sender',
+            timestamp: firestore.FieldValue.serverTimestamp(),
+          },
+        });
+
+        // --- Update Bill Request Status after successful payment ---
+        // This part is crucial for linking payment to bill requests
+        if (billId && currentUserUid) {
+          const recipientBillRequestDocRef = firestore().collection('users').doc(currentUserUid);
+          const senderBillRequestDocRef = firestore().collection('users').doc(recipientUid); // Recipient of payment is sender of bill request
+
+          // Update the current user's (the one who received the bill and is now paying it) bill request status to 'paid'
+          transaction.update(recipientBillRequestDocRef, {
+            [`request.${billId}.status`]: 'paid',
+          });
+          console.log(`Bill request ${billId} status updated to 'paid' for current user (${currentUserUid}).`);
+
+          // Update the sender's (of the bill request) record for this specific recipient to 'paid'
+          transaction.update(senderBillRequestDocRef, {
+            [`request.${billId}.recipients.${currentUserUid}.status`]: 'paid',
+          });
+          console.log(`Bill request ${billId} status updated to 'paid' for sender's (${recipientUid}) recipient record.`);
+        }
+        // --- END Bill Request Update ---
       });
 
-      const recipientDocRef = firestore().collection('users').doc(recipientUid);
-      const recipientSnapshot = await transaction.get(recipientDocRef);
+      Alert.alert('Success', `Successfully paid ₹${formatAmount(amount)} to ${recipientUsername}.`);
+      setAmount('');
+      // Re-fetch current user's balance to reflect the change
+      fetchCurrentUserDetails(currentUserUid);
+      navigation.goBack(); // Go back to PayRequest screen after successful payment
 
-      if (!recipientSnapshot.exists) {
-        throw new Error("Recipient account not found for the scanned ID.");
-      }
+    } catch (error: any) {
+      console.error("Error making payment: ", error);
+      Alert.alert('Payment Failed', error.message || 'There was an error processing your payment. Please try again.');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
 
-      // Update recipient's balance and add transaction to their map
-      transaction.update(recipientDocRef, {
-        balance: firestore.FieldValue.increment(amountToPay),
-        [`transhistory.${transactionId}`]: { // Use the same transactionId
-          amount: amountToPay, // Store as positive for credit
-          type: 'credit',
-          senderUid: currentUserUid,
-          senderName: currentUsername || 'Unknown Sender',
-          timestamp: firestore.FieldValue.serverTimestamp(), // Use server timestamp for consistency
-        },
-      });
-    });
-
-    Alert.alert('Success', `Successfully paid ₹${formatAmount(amount)} to ${recipientUsername}.`);
-    setAmount('');
-    fetchCurrentUserDetails(currentUserUid);
-
-  } catch (error: any) {
-    console.error("Error making payment: ", error);
-    Alert.alert('Payment Failed', error.message || 'There was an error processing your payment. Please try again.');
-  } finally {
-    setIsProcessingPayment(false);
-  }
-};
   // Function to fetch current user's details
   const fetchCurrentUserDetails = (uid: string | undefined) => {
     if (!uid) {
@@ -117,10 +171,9 @@ const Payment = ({ route }) => {
       .onSnapshot(documentSnapshot => {
         if (documentSnapshot.exists()) {
           const data = documentSnapshot.data();
-          // console.log('Current User data: ', data); // Log only if needed for debugging
-          setMyBal(data.balance || 0);
-          setCurrentUserEmail(data.email || 'N/A');
-          setCurrentUsername(data.username ? data.username.toUpperCase() : 'N/A');
+          setMyBal(data?.balance || 0); // Use optional chaining for data
+          setCurrentUserEmail(data?.email || 'N/A');
+          setCurrentUsername(data?.username ? data.username.toUpperCase() : 'N/A');
         } else {
           console.log('Current user document does not exist.');
           setMyBal(null);
@@ -138,18 +191,18 @@ const Payment = ({ route }) => {
 
   // Effect to fetch recipient details when recipientUid is available
   useEffect(() => {
-    const fetchRecipientDetails = async (uid: string | undefined) => {
+    const fetchRecipientDetails = async (uid: string) => { // uid is guaranteed to be string here
       setIsLoadingRecipient(true); // Start loading
       try {
         const recipientDoc = await firestore().collection('users').doc(uid).get();
 
         if (recipientDoc.exists()) {
           const recipientData = recipientDoc.data();
-          setRecipientUsername(recipientData.username ? recipientData.username.toUpperCase() : 'N/A');
-          setRecipientEmail(recipientData.email || 'N/A');
+          setRecipientUsername(recipientData?.username ? recipientData.username.toUpperCase() : 'N/A');
+          setRecipientEmail(recipientData?.email || 'N/A');
           console.log("Recipient details fetched:", recipientData);
         } else {
-          Alert.alert("Recipient Not Found", "The scanned QR code ID does not match a known user.");
+          Alert.alert("Recipient Not Found", "The provided ID does not match a known user.");
           setRecipientUsername('Unknown User');
           setRecipientEmail('N/A');
         }
@@ -164,10 +217,7 @@ const Payment = ({ route }) => {
     };
 
     if (recipientUid) {
-      // If a recipient UID is passed, fetch their details
       fetchRecipientDetails(recipientUid);
-      console.log(recipientUid);
-
     } else {
       // If no recipient UID, set default states and stop loading
       setRecipientUsername('Scan QR / Select Recipient');
@@ -178,7 +228,6 @@ const Payment = ({ route }) => {
 
   // Effect to fetch current user's balance on component mount (and setup listener)
   useEffect(() => {
-    // Only fetch if current user's UID is available (meaning user is logged in)
     if (currentUserUid) {
       const subscriber = fetchCurrentUserDetails(currentUserUid);
       return () => subscriber(); // Cleanup subscription
@@ -186,35 +235,37 @@ const Payment = ({ route }) => {
   }, [currentUserUid]); // Depend on currentUserUid
 
   const handleKeyPress = (key: string) => {
+    // Prevent multiple decimal points
+    if (key === '.' && amount.includes('.')) {
+      return;
+    }
+    // Limit to two decimal places
+    if (amount.includes('.') && amount.split('.')[1]?.length >= 2 && key !== 'backspace') {
+      return;
+    }
+
     if (key === 'backspace') {
       setAmount(amount.slice(0, -1));
-    } else if (key === '.') {
-      if (!amount.includes('.')) {
-        setAmount(amount + key);
-      }
     } else {
-      if (amount.includes('.') && amount.split('.')[1].length >= 2) {
-        return;
-      }
       setAmount(amount + key);
     }
   };
 
   const formatAmount = (input: string) => {
     if (!input) return '0';
-    let formatted = input.replace(/^0+(?=\d)/, '');
+    let formatted = input.replace(/^0+(?=\d)/, ''); // Remove leading zeros unless it's just '0'
     if (formatted === '') formatted = '0';
-    if (formatted === '.') formatted = '0.';
+    if (formatted === '.') formatted = '0.'; // Handle case where user types '.' first
     const parts = formatted.split('.');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ','); // Add thousands separator
     return parts.join('.');
   };
 
-  const KeypadButton = ({ value }) => (
+  const KeypadButton = ({ value }: { value: string }) => (
     <TouchableOpacity style={styles.keypadButton} onPress={() => handleKeyPress(value)}>
       {value === 'backspace' ? (
         <MaterialIcons name="backspace" size={24} color="#E0E0E0" />
-      ) : value === 'image' ? (
+      ) : value === 'image' ? ( // This 'image' case seems unused in your current keypad
         <MaterialIcons name="qr-code-scanner" size={24} color="#E0E0E0" />
       ) : (
         <Text style={styles.keypadButtonText}>{value}</Text>
@@ -266,15 +317,19 @@ const Payment = ({ route }) => {
           <View style={styles.bankInfo}>
             <Text style={styles.bankName}>{selectedBank.name}</Text>
             <Text style={styles.bankAccount}>xx{selectedBank.lastDigits}</Text>
-            <Text style={styles.bankBalance}>Your Balance: {mybal !== null ? `₹${mybal}` : '...'}</Text>
+            <Text style={styles.bankBalance}>Your Balance: {mybal !== null ? `₹${mybal.toFixed(2)}` : '...'}</Text>
           </View>
           <MaterialIcons name="keyboard-arrow-down" size={24} color="#B0B0B0" style={{ marginLeft: 'auto' }} />
         </View>
         {/* Next Button / Pay Button */}
-        <TouchableOpacity style={styles.nextButton} onPress={() => {
-          navigation.navigate('VerifyPin', { onSuccess: () => pay() });
-        }}
-          disabled={isLoadingRecipient || isProcessingPayment || !recipientUid}>
+        <TouchableOpacity
+          style={styles.nextButton}
+          onPress={() => {
+            // Pass the `pay` function as a callback to `VerifyPin`
+            navigation.navigate('VerifyPin', { onSuccess: pay });
+          }}
+          disabled={isLoadingRecipient || isProcessingPayment || !recipientUid || Number(amount) <= 0} // Disable if no recipient or zero amount
+        >
           {isProcessingPayment ? (
             <ActivityIndicator size="small" color="#000" />
           ) : (
@@ -309,6 +364,7 @@ const Payment = ({ route }) => {
     </View>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -445,4 +501,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
 export default Payment;

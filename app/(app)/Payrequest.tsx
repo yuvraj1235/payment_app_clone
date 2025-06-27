@@ -1,326 +1,295 @@
-import React, { useEffect, useState, useCallback } from 'react';
+// PayRequest.tsx
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
-  Image,
-  Dimensions,
-  Alert,
-  ActivityIndicator,
   ScrollView,
+  ActivityIndicator,
+  Alert,
+  TouchableOpacity,
+  RefreshControl,
+  Platform
 } from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { useNavigation, useLocalSearchParams } from 'expo-router';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { useNavigation } from '@react-navigation/native';
+import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
-const { width } = Dimensions.get('window');
 
-// Define types for navigation and route parameters
-type RootStackParamList = {
-  navigate: (screen: string, params?: object) => void;
-  goBack: () => void;
-  VerifyPin: { onSuccess: () => void };
-};
-
-type PayRequestRouteParams = {
-  billRequestId: string;
-  originalBillSplitterUid: string; // The UID of the person who sent the request (senderUid in the request object)
-};
-
-type BillRequestData = {
+// Define a type for a single bill request
+type BillRequest = {
   billId: string;
+  description: string;
+  amount: number;
   senderUid: string;
   senderName: string;
-  recipientUid: string;
-  recipientName: string;
-  amountRequested: number;
-  description: string;
-  status: 'pending' | 'paid' | 'rejected';
-  createdAt: firestore.Timestamp; // Firestore Timestamp object
-  updatedAt: firestore.Timestamp;
+  status: 'pending' | 'paid' | 'declined';
+  timestamp: FirebaseFirestoreTypes.Timestamp; // Use Firestore's Timestamp type for fetched data
 };
 
 const PayRequest = () => {
-  const navigation = useNavigation<RootStackParamList>();
-  const params = useLocalSearchParams<PayRequestRouteParams>();
-
-  const { billRequestId, originalBillSplitterUid } = params; // Extract params
-
-  const [requestData, setRequestData] = useState<BillRequestData | null>(null);
-  const [loadingRequest, setLoadingRequest] = useState(true);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [mybal, setMyBal] = useState<number | null>(null); // To display current user's balance
-
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState<BillRequest[]>([]);
+  const [historyRequests, setHistoryRequests] = useState<BillRequest[]>([]);
   const currentUserUid = auth().currentUser?.uid;
 
-  // Function to format amount for display (reused from Payment component)
-  const formatAmount = (input: string | number | null) => {
-    if (input === null || input === '') return '0.00';
-    let formatted = String(input);
-    if (formatted.length > 1 && formatted.startsWith('0') && !formatted.startsWith('0.')) {
-        formatted = formatted.substring(1);
-    }
-    if (formatted === '') formatted = '0';
-    const parts = formatted.split('.');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    if (parts.length > 1) {
-        parts[1] = parts[1].substring(0, 2);
-    } else if (formatted.includes('.')) {
-        return formatted;
-    }
-    return parts.join('.');
-  };
+  const navigation = useNavigation(); // Initialize navigation hook
 
-  // Fetch current user's balance
-  const fetchCurrentUserBalance = useCallback((uid: string | undefined) => {
-    if (!uid) {
-      console.log('No current user UID to fetch balance.');
-      return () => {};
-    }
-    const subscriber = firestore()
-      .collection('users')
-      .doc(uid)
-      .onSnapshot(documentSnapshot => {
-        if (documentSnapshot.exists()) {
-          const data = documentSnapshot.data();
-          setMyBal(data?.balance || 0);
-        } else {
-          setMyBal(0);
-        }
-      }, (error) => {
-        console.error("Error fetching current user balance: ", error);
-        setMyBal(0);
-      });
-    return subscriber;
-  }, []);
-
-  // Fetch the specific bill request details for the current user
-  useEffect(() => {
-    const fetchRequestDetails = async () => {
-      if (!currentUserUid || !billRequestId) {
-        Alert.alert("Error", "Missing user ID or request ID.");
-        setLoadingRequest(false);
-        return;
-      }
-      setLoadingRequest(true);
-      try {
-        const userDocRef = firestore().collection('users').doc(currentUserUid);
-        const userDocSnapshot = await userDocRef.get();
-        const userData = userDocSnapshot.data();
-
-        if (userData && userData.transhistory && userData.transhistory.billRequests) {
-          const request = userData.transhistory.billRequests[billRequestId];
-          if (request && request.recipientUid === currentUserUid) { // Ensure this request is actually for the current user
-            setRequestData(request as BillRequestData);
-          } else {
-            Alert.alert("Request Not Found", "This bill request does not exist or is not for you.");
-            navigation.goBack(); // Go back if request not found or not for this user
-          }
-        } else {
-          Alert.alert("No Requests", "No bill requests found in your history.");
-          navigation.goBack();
-        }
-      } catch (error) {
-        console.error("Error fetching bill request:", error);
-        Alert.alert("Error", "Failed to load bill request. Please try again.");
-        navigation.goBack();
-      } finally {
-        setLoadingRequest(false);
-      }
-    };
-
-    fetchRequestDetails();
-    const unsubscribeBalance = fetchCurrentUserBalance(currentUserUid); // Start balance listener
-    return () => unsubscribeBalance(); // Cleanup balance listener
-  }, [currentUserUid, billRequestId, navigation, fetchCurrentUserBalance]);
-
-
-  // Payment logic for the request
-  const payRequest = async () => {
-    if (!requestData) {
-      Alert.alert('Error', 'Bill request data is missing.');
+  const fetchRequests = useCallback(async () => {
+    if (!currentUserUid) {
+      setLoading(false);
       return;
     }
-    if (!mybal || mybal < requestData.amountRequested) {
-      Alert.alert('Insufficient Balance', `Your balance (₹${formatAmount(mybal)}) is too low for this payment (₹${formatAmount(requestData.amountRequested)}).`);
-      return;
-    }
-
-    setIsProcessingPayment(true);
-    const amountToPay = requestData.amountRequested;
-    const transactionId = new Date().toISOString().replace(/[^0-9]/g, ''); // Unique ID for the payment transaction
 
     try {
-      await firestore().runTransaction(async (transaction) => {
-        // --- Current User (Payer/Recipient of request) ---
-        const payerDocRef = firestore().collection('users').doc(currentUserUid!);
-        const payerSnapshot = await transaction.get(payerDocRef);
+      const userDocRef = firestore().collection('users').doc(currentUserUid);
+      const unsubscribe = userDocRef.onSnapshot(docSnapshot => {
+        if (docSnapshot.exists) {
+          const userData = docSnapshot.data();
+          // Access the 'request' map, defaulting to an empty object if not found
+          const requestsMap = userData?.request || {};
 
-        if (!payerSnapshot.exists) {
-          throw new Error("Payer's account does not exist!");
+          const fetchedPending: BillRequest[] = [];
+          const fetchedHistory: BillRequest[] = [];
+
+          // Iterate through the requests map
+          for (const billId in requestsMap) {
+            const request = requestsMap[billId];
+            if (request.type === 'bill_request_received') { // Only process received requests
+              const billRequest: BillRequest = {
+                billId: billId,
+                description: request.description,
+                amount: request.amount,
+                senderUid: request.senderUid,
+                senderName: request.senderName,
+                status: request.status,
+                timestamp: request.timestamp,
+              };
+
+              if (request.status === 'pending') {
+                fetchedPending.push(billRequest);
+              } else {
+                fetchedHistory.push(billRequest);
+              }
+            }
+          }
+
+          // Sort requests by timestamp (newest first)
+          fetchedPending.sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime());
+          fetchedHistory.sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime());
+
+          setPendingRequests(fetchedPending);
+          setHistoryRequests(fetchedHistory);
+        } else {
+          setPendingRequests([]);
+          setHistoryRequests([]);
         }
-
-        const payerBalance = payerSnapshot.data()?.balance || 0;
-        if (payerBalance < amountToPay) {
-          throw new Error("Insufficient balance.");
-        }
-
-        // Debit payer's balance
-        transaction.update(payerDocRef, {
-          balance: firestore.FieldValue.increment(-amountToPay),
-          [`transhistory.${transactionId}`]: { // Record the payment transaction
-            amount: -amountToPay,
-            type: 'debit',
-            recipientUid: requestData.senderUid, // The original splitter is the recipient of this payment
-            recipientName: requestData.senderName,
-            description: `Payment for: ${requestData.description}`,
-            timestamp: firestore.FieldValue.serverTimestamp(),
-            relatedBillRequestId: billRequestId, // Link back to the bill request
-          },
-          // Delete the bill request from payer's history
-          [`transhistory.billRequests.${billRequestId}`]: firestore.FieldValue.delete(),
-        });
-
-        // --- Original Bill Splitter (Sender of request / Recipient of payment) ---
-        const splitterDocRef = firestore().collection('users').doc(requestData.senderUid);
-        const splitterSnapshot = await transaction.get(splitterDocRef);
-
-        if (!splitterSnapshot.exists) {
-          throw new Error(`Original bill splitter account not found for ID: ${requestData.senderUid}.`);
-        }
-
-        // Credit splitter's balance
-        transaction.update(splitterDocRef, {
-          balance: firestore.FieldValue.increment(amountToPay),
-          [`transhistory.${transactionId}`]: { // Record the payment transaction
-            amount: amountToPay,
-            type: 'credit',
-            senderUid: currentUserUid, // The current user is the sender of this payment
-            senderName: requestData.recipientName, // Use the recipient name (current user's name)
-            description: `Received for: ${requestData.description}`,
-            timestamp: firestore.FieldValue.serverTimestamp(),
-            relatedBillRequestId: billRequestId, // Link back to the bill request
-          },
-          // Delete the sent bill request from splitter's history
-          [`transhistory.billRequests.${billRequestId}`]: firestore.FieldValue.delete(),
-        });
+        setLoading(false);
+        setRefreshing(false);
+      }, (error) => {
+        console.error("Error fetching real-time requests:", error);
+        Alert.alert("Error", "Failed to load requests in real-time. Please try again.");
+        setLoading(false);
+        setRefreshing(false);
       });
 
-      Alert.alert('Success', `Successfully paid ₹${formatAmount(amountToPay)} for "${requestData.description}".`);
-      navigation.goBack(); // Go back after successful payment
+      // Return the unsubscribe function to clean up the listener
+      return unsubscribe;
 
-    } catch (error: any) {
-      console.error("Error processing bill request payment: ", error);
-      Alert.alert('Payment Failed', error.message || 'There was an error processing your payment. Please try again.');
-    } finally {
-      setIsProcessingPayment(false);
+    } catch (error) {
+      console.error('Error fetching bill requests:', error);
+      Alert.alert('Error', 'Failed to load your bill requests. Please try again.');
+      setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [currentUserUid]);
 
-  // Handler to initiate PIN verification before payment
-  const handlePayButtonPress = () => {
-    if (!requestData) {
-      Alert.alert('Error', 'Request data is not loaded.');
+  useEffect(() => {
+    const unsubscribe = fetchRequests();
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe(); // Clean up the listener when the component unmounts
+      }
+    };
+  }, [fetchRequests]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchRequests();
+  }, [fetchRequests]);
+
+  const handleRequestAction = async (
+    request: BillRequest,
+    action: 'paid' | 'declined'
+  ) => {
+    if (!currentUserUid) {
+      Alert.alert("Error", "User not authenticated.");
       return;
     }
-    // Navigate to VerifyPin, passing the payRequest function as callback
-    navigation.navigate('VerifyPin', { onSuccess: () => payRequest() });
+
+    if (action === 'paid') {
+      // Redirect to Payment screen with necessary details
+      navigation.navigate('Payment', {
+        recipientUid: request.senderUid,
+        amountToPay: request.amount.toFixed(2), // Pass the amount as a fixed-point string
+        billId: request.billId, // Pass the billId to update status after payment
+        billDescription: request.description // Pass description for context
+      });
+      return; // Stop further execution in this function
+    }
+
+    Alert.alert(
+      `Confirm Decline`, // Only 'Decline' path reaches here
+      `Are you sure you want to decline the request from ${request.senderName} for ₹${request.amount.toFixed(2)} (${request.description})?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Confirm Decline', // Only 'Decline' path reaches here
+          onPress: async () => {
+            try {
+              const batch = firestore().batch();
+
+              // 1. Update recipient's (current user's) request status
+              const recipientDocRef = firestore().collection('users').doc(currentUserUid);
+              batch.update(recipientDocRef, {
+                [`request.${request.billId}.status`]: action, // 'declined'
+              });
+              console.log(`Recipient's request status for ${request.billId} set to ${action}.`);
+
+              // 2. Update sender's request status for this recipient
+              const senderDocRef = firestore().collection('users').doc(request.senderUid);
+               batch.update(senderDocRef, {
+                 [`request.${request.billId}.recipients.${currentUserUid}.status`]: action, // 'declined'
+               });
+               console.log(`Sender's recipient status for ${currentUserUid} in bill ${request.billId} set to ${action}.`);
+
+
+              await batch.commit();
+              Alert.alert('Success', `Request ${action} successfully!`);
+            } catch (error: any) {
+              console.error(`Error ${action} bill request:`, error);
+              Alert.alert('Error', `Failed to ${action} request: ${error.message}`);
+            }
+          },
+        },
+      ]
+    );
   };
 
-  if (loadingRequest) {
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1A73E8" />
-        <Text style={styles.loadingText}>Loading bill request...</Text>
-      </View>
-    );
-  }
-
-  if (!requestData) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>No bill request found or an error occurred.</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </TouchableOpacity>
+        <Text style={styles.loadingText}>Loading your requests...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={28} color="#4A4A4A" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Pay Bill Request</Text>
-        <View style={{ width: 28 }} /> {/* Placeholder for alignment */}
-      </View>
+    <SafeAreaView style={styles.fullScreenContainer}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <Text style={styles.header}>💰 Your Bill Requests</Text>
 
-      <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        <View style={styles.requestCard}>
-          <View style={styles.requestHeader}>
-            <MaterialIcons name="receipt" size={30} color="#1A73E8" />
-            <Text style={styles.requestDescription}>{requestData.description}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Requested by:</Text>
-            <Text style={styles.detailValue}>{requestData.senderName}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Amount to Pay:</Text>
-            <Text style={styles.detailValueAmount}>₹{formatAmount(requestData.amountRequested)}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Status:</Text>
-            <Text style={[styles.detailValue, requestData.status === 'pending' ? styles.statusPending : styles.statusPaid]}>
-              {requestData.status.toUpperCase()}
+        {pendingRequests.length === 0 && historyRequests.length === 0 && (
+          <View style={styles.emptyState}>
+            <MaterialIcons name="inbox" size={80} color="#ccc" />
+            <Text style={styles.emptyStateText}>No bill requests found.</Text>
+            <Text style={styles.emptyStateSubText}>
+              When someone splits a bill with you, it will appear here.
             </Text>
           </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Requested on:</Text>
-            <Text style={styles.detailValue}>{requestData.createdAt.toDate().toLocaleString()}</Text>
-          </View>
-        </View>
+        )}
 
-        {/* Current Balance and Payment Button */}
-        <View style={styles.paymentInfoCard}>
-          <Text style={styles.currentBalanceLabel}>Your Current Balance:</Text>
-          <Text style={styles.currentBalanceAmount}>₹{mybal !== null ? formatAmount(mybal) : '...'}</Text>
-          {requestData.status === 'pending' ? (
-            <TouchableOpacity
-              style={[styles.payButton, isProcessingPayment && styles.payButtonDisabled]}
-              onPress={handlePayButtonPress}
-              disabled={isProcessingPayment || mybal === null || mybal < requestData.amountRequested}
-            >
-              {isProcessingPayment ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={styles.payButtonText}>Pay Now</Text>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.paidStatusContainer}>
-              <MaterialIcons name="check-circle" size={24} color="#4CAF50" />
-              <Text style={styles.paidStatusText}>This request has been paid.</Text>
-            </View>
-          )}
-        </View>
+        {pendingRequests.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Pending Requests</Text>
+            {pendingRequests.map((req) => (
+              <View key={req.billId} style={styles.requestCard}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardDescription}>{req.description}</Text>
+                  <Text style={styles.cardAmount}>₹{req.amount.toFixed(2)}</Text>
+                </View>
+                <Text style={styles.cardSender}>From: {req.senderName}</Text>
+                <Text style={styles.cardDate}>
+                  Requested on:{' '}
+                  {req.timestamp?.toDate()?.toLocaleDateString() || 'N/A'}
+                </Text>
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={styles.payButton}
+                    onPress={() => handleRequestAction(req, 'paid')} // This will now navigate
+                  >
+                    <MaterialIcons name="check" size={20} color="#fff" />
+                    <Text style={styles.payButtonText}>Pay</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.declineButton}
+                    onPress={() => handleRequestAction(req, 'declined')}
+                  >
+                    <MaterialIcons name="close" size={20} color="#fff" />
+                    <Text style={styles.declineButtonText}>Decline</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+
+        {historyRequests.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Request History</Text>
+            {historyRequests.map((req) => (
+              <View key={req.billId} style={[styles.requestCard, styles.historyCard]}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardDescription}>{req.description}</Text>
+                  <Text style={[styles.cardAmount, req.status === 'paid' ? styles.paidAmount : styles.declinedAmount]}>
+                    ₹{req.amount.toFixed(2)}
+                  </Text>
+                </View>
+                <Text style={styles.cardSender}>From: {req.senderName}</Text>
+                <Text style={styles.cardDate}>
+                  Status:{' '}
+                  <Text style={{ fontWeight: 'bold', color: req.status === 'paid' ? '#4CAF50' : '#FF5252' }}>
+                    {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+                  </Text>{' '}
+                  on:{' '}
+                  {req.timestamp?.toDate()?.toLocaleDateString() || 'N/A'}
+                </Text>
+              </View>
+            ))}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  fullScreenContainer: {
+    flex: 1,
+    backgroundColor: '#F0F2F5',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F0F2F5',
-    paddingHorizontal: 16,
-    paddingTop: 32,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  scrollContent: {
+    paddingBottom: 30,
   },
   loadingContainer: {
     flex: 1,
@@ -330,150 +299,143 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: '#666',
+    fontSize: 16,
     marginTop: 10,
-    fontSize: 16,
-  },
-  backButton: {
-    marginTop: 20,
-    backgroundColor: '#1A73E8',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 26,
     color: '#333333',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 30,
   },
-  scrollViewContent: {
-    flexGrow: 1,
-    paddingBottom: 20,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333333',
+    marginBottom: 15,
+    marginTop: 25,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    paddingBottom: 5,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyStateText: {
+    fontSize: 20,
+    color: '#888',
+    marginTop: 20,
+    fontWeight: 'bold',
+  },
+  emptyStateSubText: {
+    fontSize: 16,
+    color: '#aaa',
+    marginTop: 10,
+    textAlign: 'center',
+    paddingHorizontal: 30,
   },
   requestCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 15,
     padding: 20,
-    marginBottom: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-  },
-  requestHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    paddingBottom: 10,
+    borderWidth: 1,
+    borderColor: '#EBF2FB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  requestDescription: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333333',
-    marginLeft: 10,
+  historyCard: {
+    opacity: 0.7, // Dim history cards slightly
   },
-  detailRow: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#F0F2F5',
+    marginBottom: 10,
   },
-  detailLabel: {
-    fontSize: 16,
-    color: '#666666',
-    fontWeight: '500',
-  },
-  detailValue: {
-    fontSize: 16,
-    color: '#333333',
+  cardDescription: {
+    fontSize: 18,
     fontWeight: '600',
+    color: '#333',
+    flexShrink: 1,
+    marginRight: 10,
   },
-  detailValueAmount: {
-    fontSize: 20,
+  cardAmount: {
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#1A73E8',
+    color: '#1A73E8', // Blue for pending
   },
-  statusPending: {
-    color: '#FFA500', // Orange for pending
-  },
-  statusPaid: {
+  paidAmount: {
     color: '#4CAF50', // Green for paid
   },
-  paymentInfoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    alignItems: 'center',
-    marginTop: 10,
+  declinedAmount: {
+    color: '#FF5252', // Red for declined
   },
-  currentBalanceLabel: {
-    fontSize: 16,
-    color: '#666666',
+  cardSender: {
+    fontSize: 15,
+    color: '#555',
     marginBottom: 5,
   },
-  currentBalanceAmount: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1A73E8',
-    marginBottom: 20,
+  cardDate: {
+    fontSize: 13,
+    color: '#777',
+    marginBottom: 15,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
   },
   payButton: {
-    backgroundColor: '#4CAF50', // Green for Pay button
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    borderRadius: 12,
+    flexDirection: 'row',
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '80%',
+    flex: 1,
+    marginRight: 10,
     shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  payButtonDisabled: {
-    backgroundColor: '#B0B0B0',
+    shadowRadius: 5,
+    elevation: 4,
   },
   payButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  paidStatusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-    padding: 10,
-    backgroundColor: '#E8F5E9', // Light green background
-    borderRadius: 8,
-    width: '90%',
-    justifyContent: 'center',
-  },
-  paidStatusText: {
-    marginLeft: 10,
     fontSize: 16,
-    color: '#4CAF50',
-    fontWeight: '600',
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  declineButton: {
+    flexDirection: 'row',
+    backgroundColor: '#FF5252',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    marginLeft: 10,
+    shadowColor: '#FF5252',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  declineButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
 });
 

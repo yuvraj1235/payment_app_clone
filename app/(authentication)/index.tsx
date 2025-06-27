@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -7,20 +6,30 @@ import {
   TextInput,
   StyleSheet,
   Alert,
-  Image,
+  Image, // Keep Image import if you plan to use a logo
   ActivityIndicator,
+  StatusBar, // For status bar styling
+  Dimensions // For responsive sizing if needed
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { useNavigation } from 'expo-router';
 import AntDesignIcon from 'react-native-vector-icons/AntDesign';
-import Google from './Google';
+import Google from './Google'; // Assuming Google component exists and is imported correctly elsewhere
 
-const index = () => {
+const { width, height } = Dimensions.get('window');
+
+const Index = () => { // Renamed from 'index' to 'Index' for component naming convention
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Set status bar style for the light theme
+  useEffect(() => {
+    StatusBar.setBarStyle('dark-content', true); // Dark icons on light background
+    return () => StatusBar.setBarStyle('default', true); // Reset on unmount
+  }, []);
 
   const loginUser = async () => {
     if (!email || !password) {
@@ -33,6 +42,8 @@ const index = () => {
       const response = await auth().signInWithEmailAndPassword(email, password);
       Alert.alert('Success', 'Logged in successfully!');
       console.log('User logged in:', response.user.email);
+      // Navigate to your main app screen upon successful login
+      // Example: navigation.navigate('Home'); // Replace 'Home' with your actual home route
     } catch (error) {
       console.error('Email/Password Login Error:', error);
       let errorMessage = 'An unexpected error occurred. Please try again.';
@@ -60,61 +71,77 @@ const index = () => {
 
   return (
     <View style={styles.container}>
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#66d9ef" />
-          <Text style={styles.loadingText}>Authenticating...</Text>
+      {/* Top Blue Header Section */}
+      <View style={styles.topHeaderBackground}>
+        {/* Placeholder for the welcome checkmark or logo */}
+        <View style={styles.welcomeIconCircle}>
+          <AntDesignIcon name="check" size={50} color="#FFFFFF" />
         </View>
-      )}
+        <Text style={styles.welcomeText}>WELCOME!!</Text>
+      </View>
 
-      <View style={styles.contentContainer}>
-        <Text style={styles.heading}>Welcome</Text>
-        <Text style={styles.heading}>back!</Text>
+      {/* Main Content Card */}
+      <View style={styles.contentCard}>
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#007BFF" />
+            <Text style={styles.loadingText}>Authenticating...</Text>
+          </View>
+        )}
 
-        <TextInput
-          style={styles.inputBox}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          placeholderTextColor="#888"
-          editable={!loading}
-        />
+        <View style={styles.inputGroup}>
+          <AntDesignIcon name="user" size={20} color="#6C757D" style={styles.inputIcon} />
+          <TextInput
+            style={styles.inputBox}
+            placeholder="Username / Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            placeholderTextColor="#ADB5BD"
+            editable={!loading}
+          />
+        </View>
 
-        <View style={styles.passwordContainer}>
+        <View style={styles.inputGroup}>
+          <AntDesignIcon name="lock" size={20} color="#6C757D" style={styles.inputIcon} />
           <TextInput
             style={styles.passwordInput}
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
-            placeholderTextColor="#888"
+            placeholderTextColor="#ADB5BD"
             editable={!loading}
           />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={loading}>
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={loading} style={styles.eyeIconContainer}>
             <AntDesignIcon
               name={showPassword ? 'eye' : 'eyeo'}
-              size={22}
-              color="#888"
-              style={styles.eyeIcon}
+              size={20}
+              color="#ADB5BD"
             />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.button} onPress={loginUser} disabled={loading}>
-            <AntDesignIcon name="arrowright" size={26} color="#000" />
-          </TouchableOpacity>
+        <TouchableOpacity disabled={loading}>
+          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+        </TouchableOpacity>
 
-          {/* Corrected navigation to 'SignIn' route */}
-          <TouchableOpacity onPress={() => navigation.navigate('SignIn')} disabled={loading}>
-            <Text style={styles.signUpText}>Don't have an account? Sign up</Text>
-          </TouchableOpacity>
+        <TouchableOpacity style={styles.loginButton} onPress={loginUser} disabled={loading}>
+          <Text style={styles.loginButtonText}>Login</Text>
+        </TouchableOpacity>
+
+        {/* Don't have an account / Register */}
+        <TouchableOpacity onPress={() => navigation.navigate('SignIn')} disabled={loading} style={styles.registerPrompt}>
+          <Text style={styles.registerPromptText}>Don't have an account?</Text>
+          <Text style={styles.registerLink}>Register</Text>
+        </TouchableOpacity>
+
+        {/* Google Login Button (uncommented and added) */}
+        {/* You'll need to ensure the './Google' component is correctly implemented and styled */}
+        <View style={styles.googleButtonContainer}>
+          <Google />
         </View>
-
-        {/* Assuming Google component is styled internally or by its own file */}
-        <Google />
       </View>
     </View>
   );
@@ -123,109 +150,146 @@ const index = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B0B0B',
+    backgroundColor: '#007BFF', // Background blue
+  },
+  topHeaderBackground: {
+    backgroundColor: '#007BFF', // Consistent blue
+    height: height * 0.35, // Adjust height as per design image
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingTop: 50, // Space for status bar
+  },
+  welcomeIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.2)', // Semi-transparent white circle
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    letterSpacing: 1.5,
+  },
+  contentCard: {
+    backgroundColor: '#FFFFFF', // White card background
+    borderRadius: 30, // Large border radius for the card
+    padding: 30,
+    marginHorizontal: 20, // Horizontal margin for the card
+    // marginTop: -70, // Overlap with the top blue section
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 15,
+    position: 'relative', // For loading overlay positioning
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 255, 180, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Semi-transparent white overlay
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 30, // Match parent card radius
     zIndex: 10,
   },
   loadingText: {
-    color: '#00FFF0',
+    color: '#007BFF',
     marginTop: 10,
     fontSize: 16,
-    fontFamily: 'System',
+    fontWeight: '600',
   },
-  contentContainer: {
-    width: '100%',
-    maxWidth: 400,
-    padding: 25,
-    borderRadius: 20,
-    backgroundColor: '#111111',
-    borderWidth: 2,
-    borderColor: '#00FFE0',
-    shadowColor: '#00FFE0',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.7,
-    shadowRadius: 20,
-    elevation: 12,
-  },
-  heading: {
-    fontSize: 42,
-    color: '#00FFF0',
-    fontWeight: '700',
-    marginBottom: 5,
-    textAlign: 'left',
-    fontFamily: 'System',
-    textShadowColor: '#00FFD5',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 6,
-  },
-  inputBox: {
-    height: 55,
-    paddingHorizontal: 18,
-    color: '#00FFD0',
-    marginTop: 25,
-    backgroundColor: '#1A1A1A',
-    fontSize: 18,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#00FFE0',
-    fontFamily: 'System',
-  },
-  passwordContainer: {
+  inputGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
-    marginTop: 15,
-    paddingHorizontal: 18,
-    height: 55,
-    borderWidth: 1.5,
-    borderColor: '#00FFE0',
+    backgroundColor: '#F8F9FA', // Very light grey background for input fields
+    borderRadius: 12, // Rounded input fields
+    marginBottom: 15, // Space between input groups
+    paddingHorizontal: 15,
+    height: 55, // Fixed height for input fields
+    borderWidth: 1,
+    borderColor: '#E9ECEF', // Light border
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  inputBox: {
+    flex: 1, // Take remaining space
+    fontSize: 16,
+    color: '#343A40', // Dark text color
   },
   passwordInput: {
     flex: 1,
-    fontSize: 18,
-    color: '#00FFD5',
-    fontFamily: 'System',
+    fontSize: 16,
+    color: '#343A40',
   },
-  eyeIcon: {
+  eyeIconContainer: {
     paddingLeft: 10,
+    paddingVertical: 5, // Make touch target larger
   },
-  actionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 30,
-    paddingHorizontal: 5,
-  },
-  signUpText: {
-    color: '#00FFE0',
+  forgotPasswordText: {
+    color: '#007BFF', // Blue text for "Forgot Password"
+    fontSize: 14,
     fontWeight: '600',
-    fontSize: 15,
-    textDecorationLine: 'none',
-    fontFamily: 'System',
+    textAlign: 'right',
+    marginBottom: 25, // Space below it
   },
-  button: {
-    backgroundColor: '#00FFCC',
-    borderRadius: 30,
+  loginButton: {
+    backgroundColor: '#007BFF', // Blue button
+    paddingVertical: 15,
+    borderRadius: 12, // Rounded button
     alignItems: 'center',
     justifyContent: 'center',
-    width: 60,
-    height: 60,
-    shadowColor: '#00FFE0',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
+    shadowColor: '#007BFF', // Blue shadow
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
     elevation: 10,
+    marginBottom: 25, // Space below button
+  },
+  loginButtonText: {
+    color: '#FFFFFF', // White text
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  registerPrompt: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  registerPromptText: {
+    color: '#6C757D', // Softer grey text
+    fontSize: 15,
+    marginRight: 5,
+  },
+  registerLink: {
+    color: '#007BFF', // Blue link
+    fontSize: 15,
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+  },
+  googleButtonContainer: {
+    marginTop: 20, // Space above Google button
+    // The Google component itself would define its own styling
+  },
+  bottomNavArrow: {
+    backgroundColor: '#007BFF', // Blue background for arrow
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 30, // Position from bottom
+    right: 30, // Position from right
+    shadowColor: '#007BFF',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 15,
+    elevation: 12,
   },
 });
 
-
-export default index;
+export default Index;

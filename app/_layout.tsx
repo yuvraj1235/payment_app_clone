@@ -2,6 +2,7 @@ import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { SetStateAction, useEffect, useState } from "react";
 import { Stack } from "expo-router";
+import 'react-native-get-random-values';
 
 GoogleSignin.configure({
   webClientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID,

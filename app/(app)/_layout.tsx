@@ -14,6 +14,7 @@ import VerifyPin from './VerifyPin';
 import SplitBill from './SplitBill';
 import RequestMoney from './RequestMoney';
 import PayRequest from './Payrequest';
+import BalanceScreen from './Balance';
 
 const Tab = createBottomTabNavigator();
 
@@ -46,6 +47,11 @@ const RootLayout = () => {
         <Tab.Screen 
           name="contact" 
           component={Contact} 
+          options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+         <Tab.Screen 
+          name="Balance" 
+          component={BalanceScreen} 
           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
       <Tab.Screen 

@@ -129,7 +129,6 @@ const SplitBill = () => {
   };
 
   const sendBillRequests = async () => {
-    console.log("5");
     if (!sharesCalculated) {
       Alert.alert('Calculate First', 'Please calculate the shares before sending requests.');
       return;
@@ -146,65 +145,68 @@ const SplitBill = () => {
         Alert.alert('Authentication Error', 'Your user data is not fully loaded. Please try again.');
         return;
     }
-console.log("3");
+
     setIsSendingRequests(true);
     const batch = firestore().batch();
-    const commonBillId = uuidv4(); // Generate a unique ID for this entire split request session
-console.log("2");
+    const commonBillId = new Date().toISOString().replace(/[^0-9]/g, '');
+    // Generate a unique ID for this entire split request session
+
+    console.log("--- Starting Bill Request Send Transaction ---");
+    //console.log("Common Bill ID:", commonBillId);
+    console.log("Current User UID (Sender):", currentUserUid);
+    console.log("Current Username (Sender):", currentUsername);
+    console.log("Total Amount:", totalAmount);
+    console.log("Description:", requestDescription.trim());
+    console.log("Participants:", participants);
+
     try {
-      console.log('Sending bill requests...');
-      console.log('Common Bill ID:', commonBillId);
-      console.log('Current User UID (Sender):', currentUserUid);
-      console.log('Current Username (Sender):', currentUsername);
-      console.log('Total Amount:', totalAmount);
-      console.log('Description:', requestDescription.trim());
-      console.log('Participants:', participants);
-
-      // 1. Update Sender's (current user's) document
+      // 1. Update Sender's (current user's) document - Add to 'transhistory' map
       const senderDocRef = firestore().collection('users').doc(currentUserUid);
-      const senderBillRequestPath = `transhistory.billRequests.${commonBillId}`; // Path to the nested map entry
-      batch.update(senderDocRef, {
-        [senderBillRequestPath]: {
-          type: 'sent', // Mark as a sent request
-          billId: commonBillId,
-          senderUid: currentUserUid,
-          senderName: currentUsername,
-          totalAmount: parseFloat(totalAmount), // Store total amount in sender's record for context
-          description: requestDescription.trim(),
-          status: 'pending',
-          createdAt: firestore.FieldValue.serverTimestamp(),
-          updatedAt: firestore.FieldValue.serverTimestamp(),
-          recipients: participants.map(p => ({ // Store details for each recipient within the sender's record
-              uid: p.uid,
-              name: p.name,
-              share: p.share
-          }))
-        }
-      });
-      
-      console.log("1");
 
-      // 2. Update Each Recipient's document
+      const senderBillRequestData = {
+        amount: parseFloat(totalAmount), // Total amount of the bill
+        type: 'bill_request_sent', // Type to identify this as a sent request
+        description: requestDescription.trim(),
+        timestamp: firestore.FieldValue.serverTimestamp(),
+        status: 'pending', // Overall status of this sent request
+        recipients: participants.map(p => ({ // Details for each recipient
+            uid: p.uid,
+            name: p.name,
+            share: p.share,
+            status: 'pending' // Individual recipient status
+        })),
+        billId: commonBillId // Store the common bill ID within the record itself for easy lookup
+      };
+
+      console.log('Sender transhistory entry:', senderBillRequestData);
+
+      batch.update(senderDocRef, {
+        [`request.${commonBillId}`]: senderBillRequestData
+      });
+      console.log("Sender document update for transhistory queued.");
+
+      // 2. Update Each Recipient's document - Add to their 'transhistory' map
       for (const participant of participants) {
         const recipientDocRef = firestore().collection('users').doc(participant.uid);
-        const recipientBillRequestPath = `transhistory.billRequests.${commonBillId}`; // Path to the nested map entry
+
+        const recipientBillRequestData = {
+          amount: participant.share, // Amount requested from this specific recipient
+          type: 'bill_request_received', // Type to identify this as a received request
+          description: requestDescription.trim(),
+          timestamp: firestore.FieldValue.serverTimestamp(),
+          status: 'pending', // Status for this specific received request
+          senderUid: currentUserUid,
+          senderName: currentUsername,
+          billId: commonBillId // Store the common bill ID
+        };
+        console.log(`Recipient transhistory entry for ${participant.name} (${participant.uid}):`, recipientBillRequestData);
+
         batch.update(recipientDocRef, {
-          [recipientBillRequestPath]: {
-            type: 'received', // Mark as a received request
-            billId: commonBillId,
-            senderUid: currentUserUid,
-            senderName: currentUsername,
-            recipientUid: participant.uid,
-            recipientName: participant.name,
-            amountRequested: participant.share,
-            description: requestDescription.trim(),
-            status: 'pending',
-            createdAt: firestore.FieldValue.serverTimestamp(),
-            updatedAt: firestore.FieldValue.serverTimestamp(),
-          }
+          [`request.${commonBillId}`]: recipientBillRequestData
         });
+        console.log(`Recipient document update for ${participant.name} queued.`);
       }
-      console.log("10");
+
       console.log('Committing batch...');
       await batch.commit();
       console.log('Batch committed successfully!');
@@ -215,15 +217,19 @@ console.log("2");
       setRequestDescription('');
       setParticipants([]);
       setSharesCalculated(false);
-    } catch (error: any) { // Use 'any' for error type if not strictly typed
-      console.error('Error sending bill requests:', error);
-      console.error('Error Code:', error.code);
+    } catch (error: any) {
+      console.error('--- Error sending bill requests: ---');
+      console.error('Error Object:', error);
+      console.error('Error Code:', error.code); // Look for this in the console!
       console.error('Error Message:', error.message);
       Alert.alert('Error', `Failed to send requests: ${error.message || 'Please check console for details.'}`);
     } finally {
       setIsSendingRequests(false);
+      console.log('--- Finished Bill Request Send Transaction ---');
     }
   };
+
+  // ... rest of the component code (styles, return statement etc. remain unchanged) ...
 
   if (loadingUsers) {
     return (
