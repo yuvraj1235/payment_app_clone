@@ -1,20 +1,16 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-
-
-// Import your screens (adjust paths based on your actual file structure)
-import Camera from './Camera';
-import Contact from './Contact';
-import History from './History';
-import Home from './Home';
+import Camera from './camera';
+import Contact from './contact';
+import History from './history';
+import Home from './home';
 import MyPage from './mypage';
-import PaymentScreen from './Payment';
-import Pin from './Pin';
-import VerifyPin from './VerifyPin';
-import SplitBill from './SplitBill';
-import RequestMoney from './RequestMoney';
-import PayRequest from './Payrequest';
-import BalanceScreen from './Balance';
+import PaymentScreen from './payment';
+import Pin from './pin';
+import VerifyPin from './verifyPin';
+import SplitBill from './splitBill';
+import PayRequest from './payrequest';
+import BalanceScreen from './balance';
 
 const Tab = createBottomTabNavigator();
 
@@ -25,20 +21,20 @@ const RootLayout = () => {
       <Tab.Navigator>
         {/* Tab for Home Screen */}
         <Tab.Screen 
-          name="Home" 
+          name="home" 
           component={Home} 
           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
 
         {/* Tab for Camera Screen */}
         <Tab.Screen 
-          name="Camera" 
+          name="camera" 
           component={Camera} 
            options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
        
          <Tab.Screen 
-          name="Request" 
+          name="payrequest" 
           component={PayRequest} 
            options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
@@ -50,12 +46,12 @@ const RootLayout = () => {
           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
          <Tab.Screen 
-          name="Balance" 
+          name="balance" 
           component={BalanceScreen} 
           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
       <Tab.Screen 
-          name="Pin" 
+          name="pin" 
           component={Pin} 
           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
@@ -66,7 +62,7 @@ const RootLayout = () => {
            options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
          <Tab.Screen 
-          name="VerifyPin" 
+          name="verifyPin" 
           component={VerifyPin} 
            options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
@@ -82,12 +78,12 @@ const RootLayout = () => {
 
         {/* Tab for Payment Screen */}
         <Tab.Screen 
-          name="Payment" 
+          name="payment" 
           component={PaymentScreen} 
            options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
         <Tab.Screen 
-          name="Split" 
+          name="splitBill" 
           component={SplitBill} 
            options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />

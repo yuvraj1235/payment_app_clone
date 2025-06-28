@@ -2,7 +2,7 @@ import React from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import index from './index';
-import SignIn from './SignIn';
+import SignIn from './signIn';
 
 const Tab = createBottomTabNavigator();
 const AuthStackLayout = () => {
@@ -14,7 +14,7 @@ const AuthStackLayout = () => {
           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
       <Tab.Screen 
-          name="SignIn" 
+          name="signIn" 
           component={SignIn} 
           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />

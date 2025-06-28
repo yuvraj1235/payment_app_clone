@@ -6,7 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert,
+  Alert, // Make sure Alert is imported
   TouchableOpacity,
   RefreshControl,
   Platform
@@ -15,9 +15,11 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
+// Import your RootStackParamList - ADJUST THIS PATH if your types file is elsewhere
+import { RootStackParamList } from './navigationTypes';
 
 // Define a type for a single bill request
 type BillRequest = {
@@ -27,7 +29,7 @@ type BillRequest = {
   senderUid: string;
   senderName: string;
   status: 'pending' | 'paid' | 'declined';
-  timestamp: FirebaseFirestoreTypes.Timestamp; // Use Firestore's Timestamp type for fetched data
+  timestamp: FirebaseFirestoreTypes.Timestamp;
 };
 
 const PayRequest = () => {
@@ -37,29 +39,33 @@ const PayRequest = () => {
   const [historyRequests, setHistoryRequests] = useState<BillRequest[]>([]);
   const currentUserUid = auth().currentUser?.uid;
 
-  const navigation = useNavigation(); // Initialize navigation hook
+  // Explicitly type the navigation hook
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
-  const fetchRequests = useCallback(async () => {
+  // Removed 'async' keyword from useCallback
+  const fetchRequests = useCallback(() => {
+    // If no user, set loading to false and return a no-op function for cleanup
     if (!currentUserUid) {
       setLoading(false);
-      return;
+      return () => {}; // Return an empty function for useEffect cleanup
     }
+
+    let unsubscribe: () => void; // Declare unsubscribe outside try/catch
 
     try {
       const userDocRef = firestore().collection('users').doc(currentUserUid);
-      const unsubscribe = userDocRef.onSnapshot(docSnapshot => {
-        if (docSnapshot.exists) {
+      // onSnapshot returns the unsubscribe function directly
+      unsubscribe = userDocRef.onSnapshot(docSnapshot => {
+        if (docSnapshot.exists()) {
           const userData = docSnapshot.data();
-          // Access the 'request' map, defaulting to an empty object if not found
           const requestsMap = userData?.request || {};
 
           const fetchedPending: BillRequest[] = [];
           const fetchedHistory: BillRequest[] = [];
 
-          // Iterate through the requests map
           for (const billId in requestsMap) {
             const request = requestsMap[billId];
-            if (request.type === 'bill_request_received') { // Only process received requests
+            if (request.type === 'bill_request_received') {
               const billRequest: BillRequest = {
                 billId: billId,
                 description: request.description,
@@ -78,7 +84,6 @@ const PayRequest = () => {
             }
           }
 
-          // Sort requests by timestamp (newest first)
           fetchedPending.sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime());
           fetchedHistory.sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime());
 
@@ -97,28 +102,31 @@ const PayRequest = () => {
         setRefreshing(false);
       });
 
-      // Return the unsubscribe function to clean up the listener
-      return unsubscribe;
+      return unsubscribe; // This now correctly returns the unsubscribe function
 
     } catch (error) {
-      console.error('Error fetching bill requests:', error);
-      Alert.alert('Error', 'Failed to load your bill requests. Please try again.');
+      // Handle immediate errors during listener setup
+      console.error('Error setting up bill requests listener:', error);
+      Alert.alert('Error', 'Failed to set up real-time request listener. Please try again.');
       setLoading(false);
       setRefreshing(false);
+      return () => {}; // Return a no-op function in case of immediate error
     }
   }, [currentUserUid]);
 
   useEffect(() => {
+    // The fetchRequests now directly returns the unsubscribe function
     const unsubscribe = fetchRequests();
     return () => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe(); // Clean up the listener when the component unmounts
-      }
+      // Call the unsubscribe function when the component unmounts or dependencies change
+      unsubscribe();
     };
-  }, [fetchRequests]);
+  }, [fetchRequests]); // Dependency array for useEffect
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
+    // When refreshing, we re-run fetchRequests which will set up a new listener
+    // The previous listener will be cleaned up by useEffect's return function
     fetchRequests();
   }, [fetchRequests]);
 
@@ -133,17 +141,17 @@ const PayRequest = () => {
 
     if (action === 'paid') {
       // Redirect to Payment screen with necessary details
-      navigation.navigate('Payment', {
+      navigation.navigate('Payment', { // This line is now correctly typed
         recipientUid: request.senderUid,
-        amountToPay: request.amount.toFixed(2), // Pass the amount as a fixed-point string
-        billId: request.billId, // Pass the billId to update status after payment
-        billDescription: request.description // Pass description for context
+        amountToPay: request.amount.toFixed(2),
+        billId: request.billId,
+        billDescription: request.description
       });
-      return; // Stop further execution in this function
+      return;
     }
 
     Alert.alert(
-      `Confirm Decline`, // Only 'Decline' path reaches here
+      `Confirm Decline`,
       `Are you sure you want to decline the request from ${request.senderName} for ₹${request.amount.toFixed(2)} (${request.description})?`,
       [
         {
@@ -151,25 +159,22 @@ const PayRequest = () => {
           style: 'cancel',
         },
         {
-          text: 'Confirm Decline', // Only 'Decline' path reaches here
+          text: 'Confirm Decline',
           onPress: async () => {
             try {
               const batch = firestore().batch();
 
-              // 1. Update recipient's (current user's) request status
               const recipientDocRef = firestore().collection('users').doc(currentUserUid);
               batch.update(recipientDocRef, {
-                [`request.${request.billId}.status`]: action, // 'declined'
+                [`request.${request.billId}.status`]: action,
               });
               console.log(`Recipient's request status for ${request.billId} set to ${action}.`);
 
-              // 2. Update sender's request status for this recipient
               const senderDocRef = firestore().collection('users').doc(request.senderUid);
                batch.update(senderDocRef, {
-                 [`request.${request.billId}.recipients.${currentUserUid}.status`]: action, // 'declined'
+                 [`request.${request.billId}.recipients.${currentUserUid}.status`]: action,
                });
                console.log(`Sender's recipient status for ${currentUserUid} in bill ${request.billId} set to ${action}.`);
-
 
               await batch.commit();
               Alert.alert('Success', `Request ${action} successfully!`);
@@ -230,7 +235,7 @@ const PayRequest = () => {
                 <View style={styles.cardActions}>
                   <TouchableOpacity
                     style={styles.payButton}
-                    onPress={() => handleRequestAction(req, 'paid')} // This will now navigate
+                    onPress={() => handleRequestAction(req, 'paid')}
                   >
                     <MaterialIcons name="check" size={20} color="#fff" />
                     <Text style={styles.payButtonText}>Pay</Text>

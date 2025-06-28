@@ -3,17 +3,36 @@ import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, Dimensions,
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { useRoute } from '@react-navigation/native'; // Keep useRoute for navigation params
-import { SafeAreaView } from 'react-native-safe-area-context'; // For proper safe area handling
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp } from '@react-navigation/native';
+export type RootStackParamList = {
+  VerifyPin: { onSuccess?: () => void }; // Assuming VerifyPin might receive an onSuccess function
+  // Add other routes here, e.g.,
+  // Home: undefined;
+  // Profile: { userId: string };
+};
+type VerifyPinScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'VerifyPin'
+>;
+type VerifyPinScreenRouteProp = RouteProp<RootStackParamList, 'VerifyPin'>;
 
+// 4. Use these types in your component's props
+interface VerifyPinProps {
+  navigation: VerifyPinScreenNavigationProp;
+  route: VerifyPinScreenRouteProp;
+}
 const { width } = Dimensions.get('window');
 
 // Define the BUTTON_SIZE based on screen width
 const BUTTON_SIZE = width / 4 - 20;
 
-export default function VerifyPin({ navigation }) {
-  const route = useRoute();
+export default function VerifyPin({ navigation }: VerifyPinProps) {
+  const route = useRoute<VerifyPinScreenRouteProp>(); // Explicitly type useRoute as well
+
   // Ensure onSuccess is always a function to prevent errors
-  const onSuccess = route.params?.onSuccess || (() => {}); 
+  const onSuccess = route.params?.onSuccess || (() => {});
   const [userUID, setUserUID] = useState<string | null>(null);
   const [pin, setPin] = useState('');
   const [isLoadingAuth, setIsLoadingAuth] = useState(true); // To manage loading state for auth

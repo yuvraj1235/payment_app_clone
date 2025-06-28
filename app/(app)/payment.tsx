@@ -326,7 +326,7 @@ const Payment = () => {
           style={styles.nextButton}
           onPress={() => {
             // Pass the `pay` function as a callback to `VerifyPin`
-            navigation.navigate('VerifyPin', { onSuccess: pay });
+            navigation.navigate('verifyPin', { onSuccess: pay });
           }}
           disabled={isLoadingRecipient || isProcessingPayment || !recipientUid || Number(amount) <= 0} // Disable if no recipient or zero amount
         >

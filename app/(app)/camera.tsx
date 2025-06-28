@@ -19,6 +19,8 @@ const screenWidth = Dimensions.get('window').width;
 const screenHeight = Dimensions.get('window').height;
 
 type RootStackParamList = {
+  goBack(): void;
+  navigate(arg0: string, arg1: { recipientUid: string; }): unknown;
   mypage: undefined;
   Camera: undefined;
   Payment: { recipientUid: string };

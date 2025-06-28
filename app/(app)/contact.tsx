@@ -67,9 +67,8 @@ const Contacts = () => {
 
   // Handler for when a contact card is pressed
   const handleContactPress = (uid: string, username: string) => {
-    // Navigate to the Payment screen, passing the recipient's UID
-    // You can also pass username if needed on the Payment screen
-    navigation.navigate('Payment', { recipientUid: uid, recipientName: username });
+    
+    navigation.navigate('payment', { recipientUid: uid, recipientName: username });
   };
 
   // Render method for individual contact items in the FlatList

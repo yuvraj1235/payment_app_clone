@@ -1,19 +1,22 @@
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Image, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+} from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { getAuth, signOut } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { useNavigation } from 'expo-router'; // Ensure this import is correct for your setup
-import { SafeAreaView } from 'react-native-safe-area-context'; // Better for handling notches/status bars
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-const screenWidth = Dimensions.get('window').width;
+
+const screenWidth = Dimensions.get('window').width; // still unused, but kept in case you need it
 
 const MyPage = () => {
-  // This line (const navigation = useNavigation();) is pure JavaScript, not JSX.
-  // The error "Text strings must be rendered within a <Text> component."
-  // pointing here is highly unusual and often suggests a hidden character issue
-  // or a very misleading error message from the JavaScript engine.
-  const navigation = useNavigation(); 
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,31 +29,33 @@ const MyPage = () => {
 
       if (currentUser) {
         try {
-          const subscriber = firestore()
+          const unsubscribe = firestore()
             .collection('users')
             .doc(currentUser.uid)
-            .onSnapshot(documentSnapshot => {
-              if (documentSnapshot.exists) {
-                const userData = documentSnapshot.data();
-                setUserEmail((userData && userData.email) || currentUser.email);
-                setUsername((userData && userData.username) || 'Add Name'); // Default to "Add Name"
-                setError(null);
-              } else {
-                setUserEmail(currentUser.email);
-                setUsername('Add Name'); // Default if no profile in Firestore
-                setError('User profile data not found in Firestore.');
+            .onSnapshot(
+              snapshot => {
+                if (snapshot.exists) {
+                  const data = snapshot.data();
+                  setUserEmail((data && data.email) || currentUser.email);
+                  setUsername((data && data.username) || 'Add Name');
+                  setError(null);
+                } else {
+                  setUserEmail(currentUser.email);
+                  setUsername('Add Name');
+                  setError('User profile data not found in Firestore.');
+                }
+                setLoading(false);
+              },
+              err => {
+                console.error('Error listening to user data:', err);
+                setError('Failed to load profile. Please check your network.');
+                setLoading(false);
               }
-              setLoading(false);
-            }, snapshotError => {
-              console.error("Error listening to user data:", snapshotError);
-              setError('Failed to load profile. Please check your network.');
-              setLoading(false);
-            });
+            );
 
-          return () => subscriber();
-
+          return () => unsubscribe();
         } catch (e) {
-          console.error("Error fetching user data:", e);
+          console.error('Error fetching user data:', e);
           setError('Failed to load profile. Please try again.');
           setLoading(false);
         }
@@ -65,29 +70,24 @@ const MyPage = () => {
 
   const handleLogout = () => {
     Alert.alert(
-      "Logout",
-      "Are you sure you want to log out?",
+      'Logout',
+      'Are you sure you want to log out?',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Logout",
+          text: 'Logout',
           onPress: () => {
             signOut(getAuth())
               .then(() => {
                 console.log('User signed out!');
-                // Navigate to a login/welcome screen after logout
-                // Replace 'Login' with your actual login screen route name
-                // navigation.navigate('Login');
+                router.replace('/(authentication)/login'); // send them to login screen
               })
-              .catch((e) => {
-                console.error('Error signing out:', e);
+              .catch(err => {
+                console.error('Error signing out:', err);
                 Alert.alert('Logout Error', 'Failed to log out. Please try again.');
               });
-          }
-        }
+          },
+        },
       ],
       { cancelable: true }
     );
@@ -104,11 +104,11 @@ const MyPage = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Background Section (simulates gradient with solid color) */}
+      {/* Top Background */}
       <View style={styles.topBackground}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIcon}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerIcon}>
             <MaterialIcons name="arrow-back" size={28} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profile</Text>
@@ -117,13 +117,12 @@ const MyPage = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Profile Photo Section */}
+        {/* Profile Photo */}
         <View style={styles.profilePhotoContainer}>
           <View style={styles.profilePhotoCircle}>
-            {/* Placeholder for profile image, or show actual image if available */}
-            <MaterialIcons name="person" size={80} color="#BFDFFF" /> {/* Larger icon */}
+            <MaterialIcons name="person" size={80} color="#BFDFFF" />
             <TouchableOpacity style={styles.addPhotoIconWrapper}>
-              <MaterialIcons name="camera-alt" size={26} color="#1A73E8" /> {/* Slightly larger icon */}
+              <MaterialIcons name="camera-alt" size={26} color="#1A73E8" />
             </TouchableOpacity>
           </View>
           <Text style={styles.addPhotoText}>Add a photo</Text>
@@ -139,19 +138,37 @@ const MyPage = () => {
         </View>
       ) : (
         <View style={styles.contentArea}>
-          {/* View QR Code Card */}
-          <TouchableOpacity style={styles.infoCard} activeOpacity={0.8} onPress={() => router.push('Pin')}> {/* Increased activeOpacity */}
-            <MaterialIcons name="password" size={26} color="#4A4A4A" style={styles.infoCardIcon} /> {/* Larger icon */}
+          {/* Set PIN */}
+          <TouchableOpacity
+            style={styles.infoCard}
+            activeOpacity={0.8}
+            onPress={() => router.push('/pin')}
+          >
+            <MaterialIcons name="password" size={26} color="#4A4A4A" style={styles.infoCardIcon} />
             <Text style={styles.infoCardText}>Set PIN</Text>
-            <MaterialIcons name="keyboard-arrow-right" size={26} color="#B0B0B0" style={styles.infoCardArrow} /> {/* Larger icon */}
+            <MaterialIcons
+              name="keyboard-arrow-right"
+              size={26}
+              color="#B0B0B0"
+              style={styles.infoCardArrow}
+            />
           </TouchableOpacity>
 
           {/* User Name */}
-          <View style={styles.infoCard}> {/* Changed to View as "Add Name" is inside */}
-            <MaterialIcons name="person-outline" size={26} color="#4A4A4A" style={styles.infoCardIcon} /> {/* Larger icon */}
+          <View style={styles.infoCard}>
+            <MaterialIcons
+              name="person-outline"
+              size={26}
+              color="#4A4A4A"
+              style={styles.infoCardIcon}
+            />
             <Text style={styles.infoCardText}>{username}</Text>
             {username === 'Add Name' && (
-              <TouchableOpacity onPress={() => console.log('Navigate to Add Name')} style={styles.addNameButton} activeOpacity={0.8}>
+              <TouchableOpacity
+                onPress={() => console.log('Navigate to Add Name')}
+                style={styles.addNameButton}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.addNameButtonText}>Add Name</Text>
               </TouchableOpacity>
             )}
@@ -159,21 +176,32 @@ const MyPage = () => {
 
           {/* Phone Number */}
           <View style={styles.infoCard}>
-            <MaterialIcons name="phone-iphone" size={26} color="#4A4A4A" style={styles.infoCardIcon} /> {/* Larger icon */}
-            {/* Using a static number as it's not from Firebase data directly */}
-            <Text style={styles.infoCardText}>+91 9064712234</Text>
+            <MaterialIcons
+              name="phone-iphone"
+              size={26}
+              color="#4A4A4A"
+              style={styles.infoCardIcon}
+            />
+            <Text style={styles.infoCardText}>+91 9064712234</Text>
           </View>
 
-          {/* Email ID */}
+          {/* Email */}
           <View style={styles.infoCard}>
-            <MaterialIcons name="email-outline" size={26} color="#4A4A4A" style={styles.infoCardIcon} /> {/* Larger icon */}
-            <Text style={styles.infoCardText}>{userEmail || 'Enter your email ID here'}</Text>
+            <MaterialIcons
+              name="email-outline"
+              size={26}
+              color="#4A4A4A"
+              style={styles.infoCardIcon}
+            />
+            <Text style={styles.infoCardText}>
+              {userEmail || 'Enter your email ID here'}
+            </Text>
           </View>
 
           {/* Logout */}
           <TouchableOpacity onPress={handleLogout} style={styles.infoCard} activeOpacity={0.8}>
-            <MaterialIcons name="logout" size={26} color="#4A4A4A" style={styles.infoCardIcon} /> {/* Larger icon */}
-            <Text style={styles.infoCardText}>Logout </Text>
+            <MaterialIcons name="logout" size={26} color="#4A4A4A" style={styles.infoCardIcon} />
+            <Text style={styles.infoCardText}>Logout</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -182,100 +210,51 @@ const MyPage = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F8F8', // Slightly off-white background for softness
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8F8F8',
-  },
-  loadingText: {
-    color: '#666',
-    marginTop: 10,
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#F8F8F8',
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  retryButton: {
-    backgroundColor: '#1A73E8',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, backgroundColor: '#F8F8F8' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 10, fontSize: 16, color: '#666' },
   topBackground: {
     width: '100%',
-    height: 280, // Increased height for more pronounced top section
-    backgroundColor: '#3F51B5', // A deeper, more vibrant indigo blue
-    borderBottomLeftRadius: 40, // More pronounced curve
-    borderBottomRightRadius: 40, // More pronounced curve
-    overflow: 'hidden',
+    height: 280,
+    backgroundColor: '#3F51B5',
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
     marginBottom: 50,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 25, // Increased horizontal padding
-    paddingTop: 20, // More top padding for status bar and content
-    paddingBottom: 30, // Push profile section further down
+    paddingHorizontal: 25,
+    paddingTop: 20,
+    paddingBottom: 30,
   },
-  headerIcon: {
-    padding: 8, // Larger touch area
-  },
-  headerTitle: {
-    fontSize: 24, // Larger title
-    fontWeight: 'bold', // Bolder title
-    color: '#FFF',
-  },
-  profilePhotoContainer: {
-    alignItems: 'center',
-    marginTop: 20, // Adjusted spacing from header
-  },
+  headerIcon: { padding: 8 },
+  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#FFF' },
+  profilePhotoContainer: { alignItems: 'center', marginTop: 20 },
   profilePhotoCircle: {
-    width: 120, // Larger profile circle
-    height: 120, // Larger profile circle
+    width: 120,
+    height: 120,
     borderRadius: 60,
-    backgroundColor: '#EBF2FB', // Light blue-grey for the circle background
+    backgroundColor: '#EBF2FB',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3, // Thicker border
-    borderColor: '#D4E2F6', // Subtle light blue border
-    position: 'relative',
+    borderWidth: 3,
+    borderColor: '#D4E2F6',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 }, // More pronounced shadow for depth
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,
     shadowRadius: 10,
     elevation: 8,
-
   },
   addPhotoIconWrapper: {
     position: 'absolute',
-    bottom: 5, // Slightly lifted from the bottom edge
-    right: 5, // Slightly in from the right edge
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20, // More rounded for the icon wrapper
-    width: 40, // Larger touchable area
-    height: 40, // Larger touchable area
+    bottom: 5,
+    right: 5,
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -286,59 +265,50 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-  addPhotoText: {
-    fontSize: 18, // Larger text
-    color: '#F0F0F0', // Lighter grey for better contrast on blue
-    marginTop: 12, // Increased margin
-    fontWeight: '600', // Bolder text
+  addPhotoText: { fontSize: 18, color: '#F0F0F0', marginTop: 12, fontWeight: '600' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  errorText: { color: 'red', fontSize: 16, textAlign: 'center', marginBottom: 15 },
+  retryButton: {
+    backgroundColor: '#1A73E8',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
   },
+  retryButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
   contentArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF', // Pure white for card background
-    marginTop: -50, // Pull this section up significantly to overlap the gradient area
-    borderTopLeftRadius: 40, // Match the curve of the top background
-    borderTopRightRadius: 40, // Match the curve
-    paddingHorizontal: 25, // Consistent padding for content
-    paddingTop: 35, // More padding inside the white content area
+    backgroundColor: '#FFF',
+    marginTop: -50,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    paddingHorizontal: 25,
+    paddingTop: 35,
   },
   infoCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF', // Pure white background for cards (cleaner)
-    borderRadius: 20, // Even more rounded corners for cards
-    paddingVertical: 22, // Increased padding
-    paddingHorizontal: 25, // Increased padding
-    marginBottom: 18, // More generous spacing between cards
-    shadowColor: '#000', // Stronger, yet elegant shadow
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    paddingVertical: 22,
+    paddingHorizontal: 25,
+    marginBottom: 18,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1, // Adjusted opacity
-    shadowRadius: 8, // Adjusted radius
-    elevation: 6, // Android shadow
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  infoCardIcon: {
-    marginRight: 20, // Increased spacing from icon to text
-  },
-  infoCardText: {
-    flex: 1,
-    fontSize: 18, // Larger text for main info
-    color: '#333333',
-    fontWeight: '500',
-  },
-  infoCardArrow: {
-    marginLeft: 15, // Increased spacing
-  },
+  infoCardIcon: { marginRight: 20 },
+  infoCardText: { flex: 1, fontSize: 18, color: '#333', fontWeight: '500' },
+  infoCardArrow: { marginLeft: 15 },
   addNameButton: {
     marginLeft: 'auto',
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 12,
-    backgroundColor: '#E0F0FF', // Light blue background for "Add Name"
+    backgroundColor: '#E0F0FF',
   },
-  addNameButtonText: {
-    color: '#1A73E8',
-    fontSize: 15,
-    fontWeight: '700', // Bolder text
-  },
+  addNameButtonText: { color: '#1A73E8', fontWeight: '700', fontSize: 15 },
 });
 
 export default MyPage;

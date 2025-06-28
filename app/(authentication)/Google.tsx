@@ -16,9 +16,22 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 import firestore from '@react-native-firebase/firestore';
 
 GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID,
+  webClientId: '117652753991-ft7ta0356tqh9snqjcpuig2kb51r3cbv.apps.googleusercontent.com',
 });
 const Google = () => {
+  const resetGoogleSession = async () => {
+  try {
+    const isSignedIn = await GoogleSignin.isSignedIn();
+    if (isSignedIn) {
+      await GoogleSignin.revokeAccess(); // revoke API tokens
+      await GoogleSignin.signOut();      // clear local session
+    }
+    await auth().signOut();              // clear Firebase session
+  } catch (err) {
+    console.warn('Error during session reset:', err);
+  }
+};
+
   const navigation = useNavigation();
   // Removed unused state variables (email, showPassword, password)
   const [loading, setLoading] = useState(false);
@@ -28,7 +41,7 @@ const Google = () => {
     try {
       // Check if Google Play Services are available
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-
+      await resetGoogleSession();
       // Get the user's ID token
       const signInResult = await GoogleSignin.signIn();
 

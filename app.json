@@ -40,6 +40,12 @@
           "contactsPermission": "Allow $(PRODUCT_NAME) to access your contacts."
         }
       ],
+        [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app needs access to your photos to upload a profile picture."
+        }
+      ],
       ["expo-camera",
         {
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",

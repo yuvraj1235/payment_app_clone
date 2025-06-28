@@ -14,31 +14,30 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { useNavigation } from '@react-navigation/native';
-import { router } from 'expo-router';
+// import { useNavigation } from '@react-navigation/native'; // REMOVED: Using expo-router's router instead
+import { router } from 'expo-router'; // Correct import for expo-router's router object
+
 const BalanceScreen = () => {
   const [balance, setBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const currentUserUid = auth().currentUser?.uid;
-  const navigation = useNavigation();
-
-  // Function to fetch the user's balance and other details
-  const fetchBalance = useCallback(async () => {
+    const fetchBalance = useCallback(async (): Promise<(() => void) | undefined> => {
     if (!currentUserUid) {
       setLoading(false);
       setRefreshing(false);
       Alert.alert('Authentication Error', 'You must be logged in to view your balance.');
-      return;
+      return undefined; // Return undefined if no user UID
     }
 
     try {
       const userDocRef = firestore().collection('users').doc(currentUserUid);
 
       // Set up a real-time listener for the user's document
+      // onSnapshot synchronously returns the unsubscribe function, which is fine
       const unsubscribe = userDocRef.onSnapshot(docSnapshot => {
-        if (docSnapshot.exists) {
+        if (docSnapshot.exists()) {
           const userData = docSnapshot.data();
           setBalance(userData?.balance ?? 0); // Default to 0 if balance is not found
           setUsername(userData?.username?.toUpperCase() || 'User'); // Default to 'User'
@@ -56,7 +55,7 @@ const BalanceScreen = () => {
         setRefreshing(false);
       });
 
-      // Return the unsubscribe function for cleanup
+      // Return the unsubscribe function, as promised by the type definition
       return unsubscribe;
 
     } catch (error) {
@@ -64,18 +63,28 @@ const BalanceScreen = () => {
       Alert.alert('Error', 'Failed to load your balance. Please try again.');
       setLoading(false);
       setRefreshing(false);
+      return undefined; // Explicitly return undefined on error
     }
   }, [currentUserUid]);
 
   // useEffect to call fetchBalance on component mount and clean up the listener
   useEffect(() => {
-    const unsubscribe = fetchBalance();
+    let unsubscribeFn: (() => void) | undefined; // Variable to hold the actual unsubscribe function
+
+    const setupListener = async () => {
+      // Await the promise returned by fetchBalance to get the actual function or undefined
+      unsubscribeFn = await fetchBalance();
+    };
+
+    setupListener(); // Call the async setup function
+
+    // The cleanup function for useEffect
     return () => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe(); // Clean up the Firestore listener
+      if (typeof unsubscribeFn === 'function') {
+        unsubscribeFn(); // Now, unsubscribeFn is guaranteed to be a function if it was set
       }
     };
-  }, [fetchBalance]);
+  }, [fetchBalance]); // Depend on fetchBalance so it re-runs if fetchBalance itself changes
 
   // Function for pull-to-refresh
   const onRefresh = useCallback(() => {
@@ -111,7 +120,8 @@ const BalanceScreen = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          {/* Use router.back() for going back */}
+          <TouchableOpacity onPress={() => router.back()}>
             <MaterialIcons name="arrow-back" size={24} color="#333333" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Balance</Text>
@@ -132,7 +142,12 @@ const BalanceScreen = () => {
         {/* Quick Actions (Optional - can be expanded) */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={() =>navigation.navigate('contact')}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            // Use router.push() for navigation, specify the path to your 'contact' screen
+            onPress={() => {router.push('contact') 
+            }} // Assuming /contact is the path to your Contact screen
+          >
             <MaterialIcons name="send" size={28} color="#1A73E8" />
             <Text style={styles.actionButtonText}>Send Money</Text>
           </TouchableOpacity>
@@ -140,7 +155,11 @@ const BalanceScreen = () => {
             <MaterialIcons name="call-received" size={28} color="#4CAF50" />
             <Text style={styles.actionButtonText}>Request Money</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() =>navigation.navigate('history')}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            // Use router.push() for navigation, specify the path to your 'history' screen
+            onPress={() => router.push('history')} // Assuming /history is the path to your History screen
+          >
             <MaterialIcons name="history" size={28} color="#FF9800" />
             <Text style={styles.actionButtonText}>History</Text>
           </TouchableOpacity>
