@@ -11,6 +11,9 @@ import VerifyPin from './verifyPin';
 import SplitBill from './splitBill';
 import PayRequest from './payrequest';
 import BalanceScreen from './balance';
+import PaymentSuccess from './paymentSuccess';
+import MyQRCode from './myqr';
+import Addmoney from './addMoney';
 
 const Tab = createBottomTabNavigator();
 
@@ -36,6 +39,21 @@ const RootLayout = () => {
          <Tab.Screen 
           name="payrequest" 
           component={PayRequest} 
+           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+          <Tab.Screen 
+          name="paymentSuccess" 
+          component={PaymentSuccess} 
+           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+          <Tab.Screen 
+          name="myqr" 
+          component={MyQRCode} 
+           options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
+        />
+         <Tab.Screen 
+          name="addMoney" 
+          component={Addmoney} 
            options={{ headerShown: false ,tabBarStyle: { display: 'none' }}} 
         />
 

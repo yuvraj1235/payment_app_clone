@@ -1,216 +1,338 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, Dimensions, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Dimensions,
+  ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
+  Modal
+} from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
-import { SafeAreaView } from 'react-native-safe-area-context'; // For proper safe area handling
-
-const { width } = Dimensions.get('window');
-
-// Define the BUTTON_SIZE based on screen width
-const BUTTON_SIZE = width / 4 - 20;
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { router } from 'expo-router';
+import LottieView from 'lottie-react-native';
 
 export default function Pin() {
   const [userUID, setUserUID] = useState<string | null>(null);
   const [pin, setPin] = useState('');
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true); // To manage loading state for auth
-  const [isSettingPin, setIsSettingPin] = useState(false); // To manage loading state during PIN setting
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isSettingPin, setIsSettingPin] = useState(false);
+
+  // State for the custom modal
+  const [showModal, setShowModal] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalType, setModalType] = useState<'success' | 'error'>('success');
+  const lottieRef = React.useRef<LottieView>(null);
+
 
   useEffect(() => {
     const subscriber = auth().onAuthStateChanged(user => {
       setUserUID(user ? user.uid : null);
-      setIsLoadingAuth(false); // Auth loading finished
+      setIsLoadingAuth(false);
     });
-    return subscriber; // Unsubscribe on component unmount
+    return subscriber;
   }, []);
 
-  const handleKeyPress = (key: string) => {
-    if (isSettingPin) return; // Prevent input while setting PIN
-
-    if (key === 'backspace') {
-      setPin(pin.slice(0, -1));
-    } else {
-      if (pin.length < 6) {
-        setPin(pin + key);
-      }
+  // Function to show the custom modal
+  const showCustomModal = (title, message, type) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalType(type);
+    setShowModal(true);
+    if (type === 'success' && lottieRef.current) {
+        lottieRef.current.play();
     }
   };
 
   const handleSubmit = async () => {
-    if (isSettingPin) return; // Prevent multiple submissions
+    if (isSettingPin) return;
 
     if (pin.length !== 6) {
-      Alert.alert("Invalid PIN", "Please enter a 6-digit PIN.");
+      showCustomModal("Invalid PIN", "Please enter a 6-digit PIN.", 'error');
       return;
     }
 
     if (!userUID) {
-      Alert.alert("Authentication Error", "User not logged in or session expired. Please re-login.");
+      showCustomModal("Authentication Error", "User not logged in or session expired. Please re-login.", 'error');
       return;
     }
 
-    setIsSettingPin(true); // Start PIN setting loading
+    setIsSettingPin(true);
 
     try {
-      // Use set with merge: true to avoid overwriting other user data
       await firestore()
         .collection('users')
         .doc(userUID)
         .set({ Pin: pin }, { merge: true });
 
-      Alert.alert('Success', 'Your PIN has been set successfully!');
-      setPin(''); // Clear PIN after successful set
-      // You might want to navigate back or to another screen after setting PIN
-      // For example: navigation.goBack(); or navigation.navigate('Home');
-    } catch (error: any) { // Use 'any' for unknown error types from catch block
+      showCustomModal('Success', 'Your PIN has been set successfully!', 'success');
+      setPin('');
+      // router.back(); or navigation.goBack() if using react-navigation
+    } catch (error) {
       console.error("Error setting PIN: ", error);
-      Alert.alert('Error', error.message || 'Failed to set PIN. Please try again.');
+      showCustomModal('Error', 'Failed to set PIN. Please try again.', 'error');
     } finally {
-      setIsSettingPin(false); // End PIN setting loading
+      setIsSettingPin(false);
     }
   };
 
-  const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'backspace', '0', 'submit'];
-
   if (isLoadingAuth) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#1A73E8" />
-        <Text style={styles.instruction}>Loading user data...</Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#009688" />
+        <Text style={styles.loadingText}>Loading user data...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>🔐 Set UPI PIN</Text>
-      <Text style={styles.instruction}>Create your 6-digit secure PIN</Text>
-
-      <TextInput
-        value={pin.split('').map(char => '•').join('')} // Mask the PIN input
-        style={styles.pinInput}
-        secureTextEntry // Ensures native secure text entry behavior
-        keyboardType="numeric"
-        maxLength={6}
-        editable={false} // Disable direct keyboard input to control via custom keypad
-      />
-
-      <View style={styles.keypad}>
-        {KEYS.map((key) => (
-          <TouchableOpacity
-            key={key}
-            style={[
-              styles.keypadButton,
-              key === 'submit' && styles.submitKey,
-              key === 'backspace' && styles.backspaceKey,
-            ]}
-            onPress={() => key === 'submit' ? handleSubmit() : handleKeyPress(key)}
-            disabled={isSettingPin} // Disable buttons during PIN setting
-          >
-            <Text style={styles.keyText}>
-              {key === 'backspace' ? '⌫' : key === 'submit' ? '✓' : key}
-            </Text>
+    <SafeAreaView style={styles.fullScreenContainer}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.container}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={28} color="#FFF" />
           </TouchableOpacity>
-        ))}
-      </View>
-
-      {isSettingPin && (
-        <View style={styles.overlayLoading}>
-          <ActivityIndicator size="large" color="#1A73E8" />
-          <Text style={styles.loadingMessage}>Setting PIN...</Text>
+          <Text style={styles.headerTitle}>Set UPI PIN</Text>
+          <View style={{ width: 28 }} />
         </View>
-      )}
+
+        <View style={styles.content}>
+          <Text style={styles.title}>🔐 Set UPI PIN</Text>
+          <Text style={styles.instruction}>Create your 6-digit secure PIN</Text>
+
+          <TextInput
+            value={pin}
+            onChangeText={setPin}
+            style={styles.pinInput}
+            secureTextEntry
+            keyboardType="numeric"
+            maxLength={6}
+            autoFocus
+          />
+
+          <TouchableOpacity
+            style={[styles.submitButton, isSettingPin && styles.submitButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={isSettingPin}
+          >
+            {isSettingPin ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.submitButtonText}>Set PIN</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+
+      {/* Custom Modal Dialog Box */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showModal}
+        onRequestClose={() => setShowModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {modalType === 'success' ? (
+                <LottieView
+                  ref={lottieRef}
+                  source={require('../../assets/Lottie Lego.json')}
+                  autoPlay={true}
+                  loop={false}
+                  style={styles.lottieAnimation}
+                  onAnimationFinish={() => setShowModal(false)}
+                />
+            ) : (
+                <MaterialIcons name="error-outline" size={80} color="#FF5252" style={styles.modalIcon} />
+            )}
+            <Text style={styles.modalTitle}>{modalTitle}</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={modalType === 'success' ? styles.modalButton : styles.modalErrorButton}
+              onPress={() => setShowModal(false)}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  fullScreenContainer: {
+    flex: 1,
+    backgroundColor: '#EEF4F4',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F5', // Light background color for the screen (PayZapp theme)
-    paddingTop: 60, // Ample top padding
-    paddingHorizontal: 20, // Horizontal padding
-    alignItems: 'center', // Center content horizontally
+    backgroundColor: '#EEF4F4',
+    paddingTop: 0,
   },
-  title: {
-    color: '#333333', // Dark text for readability
-    fontSize: 26,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  instruction: {
-    color: '#666666', // Medium grey for instructions
-    fontSize: 16,
-    marginBottom: 40, // More space below instructions
-    textAlign: 'center',
-  },
-  pinInput: {
-    color: '#1A73E8', // PayZapp blue for PIN text
-    fontSize: 32, // Larger PIN digits
-    letterSpacing: 18, // Increased letter spacing for masked digits
-    textAlign: 'center',
-    paddingVertical: 15, // More vertical padding
-    borderBottomWidth: 3, // Thicker border
-    borderBottomColor: '#1A73E8', // PayZapp blue border
-    width: '75%', // Slightly wider input field
-    marginBottom: 50, // More space below PIN input
-    fontWeight: 'bold', // Make PIN digits bold
-  },
-  keypad: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center', // Center keypad horizontally
-    paddingHorizontal: 10, // Padding for the keypad grid
-  },
-  keypadButton: {
-    width: BUTTON_SIZE + 10, // Slightly larger buttons
-    height: BUTTON_SIZE + 10,
-    borderRadius: (BUTTON_SIZE + 10) / 2, // Perfect circle
-    margin: 8, // Reduced margin for denser grid, but still spacious
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF', // White background for keys
-    shadowColor: '#000', // Subtle shadow for depth
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 5, // Android shadow
+    backgroundColor: '#EEF4F4',
   },
-  keyText: {
-    fontSize: 28, // Larger key text
-    color: '#333333', // Dark text for numbers
-    fontWeight: '600',
+  loadingText: {
+    marginTop: 10,
+    color: '#00695C',
+    fontSize: 16,
   },
-  backspaceKey: {
-    backgroundColor: '#E9ECEF', // Light grey for backspace key
-    shadowColor: '#000', // Subtle shadow
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#009688',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    paddingTop: Platform.OS === 'android' ? 40 : 15,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+    marginBottom: 20,
   },
-  submitKey: {
-    backgroundColor: '#1A73E8', // PayZapp blue for submit key
-    shadowColor: '#1A73E8', // Blue shadow for glow effect
+  backButton: {
+    padding: 5,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 30,
+  },
+  title: {
+    color: '#004D40',
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  instruction: {
+    color: '#00695C',
+    fontSize: 16,
+    marginBottom: 40,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  pinInput: {
+    color: '#009688',
+    fontSize: 36,
+    textAlign: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 3,
+    borderBottomColor: '#009688',
+    width: '80%',
+    marginBottom: 50,
+    fontWeight: 'bold',
+  },
+  submitButton: {
+    backgroundColor: '#009688',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 30,
+    marginTop: 20,
+    width: '80%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#009688',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
     shadowRadius: 12,
     elevation: 10,
   },
-  overlayLoading: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Semi-transparent white overlay
+  submitButtonDisabled: {
+    backgroundColor: '#B2DFDB',
+    shadowColor: '#B2DFDB',
+  },
+  submitButtonText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10, // Ensure it's on top
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
-  loadingMessage: {
-    marginTop: 10,
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 15,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#004D40',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalMessage: {
     fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+    color: '#00695C',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '80%',
+    shadowColor: '#009688',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+    backgroundColor: '#009688',
+  },
+  modalButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalIcon: {
+      marginBottom: 15,
+  },
+  modalErrorButton: {
+      backgroundColor: '#FF5252',
+      shadowColor: '#FF5252',
+  },
+  lottieAnimation: {
+      width: 120,
+      height: 120,
+      marginBottom: 15,
   },
 });

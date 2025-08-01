@@ -1,4 +1,3 @@
-// PayRequest.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -6,20 +5,26 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert, // Make sure Alert is imported
   TouchableOpacity,
   RefreshControl,
-  Platform
+  Modal, // Import Modal for custom confirmation
 } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { router } from 'expo-router'; // Assuming you are using expo-router
 import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 // Import your RootStackParamList - ADJUST THIS PATH if your types file is elsewhere
-import { RootStackParamList } from './navigationTypes';
+// This is a placeholder, ensure it matches your actual navigation setup
+type RootStackParamList = {
+  payment: { recipientUid: string; amountToPay: string; billId: string; billDescription: string };
+  // Add other routes as needed if you navigate to them
+  login: undefined; // For the login button in error state
+  // ... other routes
+};
 
 // Define a type for a single bill request
 type BillRequest = {
@@ -39,94 +44,83 @@ const PayRequest = () => {
   const [historyRequests, setHistoryRequests] = useState<BillRequest[]>([]);
   const currentUserUid = auth().currentUser?.uid;
 
+  // State for custom confirmation modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [requestToDecline, setRequestToDecline] = useState<BillRequest | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+
   // Explicitly type the navigation hook
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
-  // Removed 'async' keyword from useCallback
   const fetchRequests = useCallback(() => {
-    // If no user, set loading to false and return a no-op function for cleanup
     if (!currentUserUid) {
       setLoading(false);
-      return () => {}; // Return an empty function for useEffect cleanup
+      return () => {};
     }
 
-    let unsubscribe: () => void; // Declare unsubscribe outside try/catch
+    const userDocRef = firestore().collection('users').doc(currentUserUid);
+    const unsubscribe = userDocRef.onSnapshot(docSnapshot => {
+      if (docSnapshot.exists()) {
+        const userData = docSnapshot.data();
+        const requestsMap = userData?.request || {};
 
-    try {
-      const userDocRef = firestore().collection('users').doc(currentUserUid);
-      // onSnapshot returns the unsubscribe function directly
-      unsubscribe = userDocRef.onSnapshot(docSnapshot => {
-        if (docSnapshot.exists()) {
-          const userData = docSnapshot.data();
-          const requestsMap = userData?.request || {};
+        const fetchedPending: BillRequest[] = [];
+        const fetchedHistory: BillRequest[] = [];
 
-          const fetchedPending: BillRequest[] = [];
-          const fetchedHistory: BillRequest[] = [];
+        for (const billId in requestsMap) {
+          const request = requestsMap[billId];
+          if (request.type === 'bill_request_received') {
+            const billRequest: BillRequest = {
+              billId: billId,
+              description: request.description,
+              amount: request.amount,
+              senderUid: request.senderUid,
+              senderName: request.senderName,
+              status: request.status,
+              timestamp: request.timestamp,
+            };
 
-          for (const billId in requestsMap) {
-            const request = requestsMap[billId];
-            if (request.type === 'bill_request_received') {
-              const billRequest: BillRequest = {
-                billId: billId,
-                description: request.description,
-                amount: request.amount,
-                senderUid: request.senderUid,
-                senderName: request.senderName,
-                status: request.status,
-                timestamp: request.timestamp,
-              };
-
-              if (request.status === 'pending') {
-                fetchedPending.push(billRequest);
-              } else {
-                fetchedHistory.push(billRequest);
-              }
+            if (request.status === 'pending') {
+              fetchedPending.push(billRequest);
+            } else {
+              fetchedHistory.push(billRequest);
             }
           }
-
-          fetchedPending.sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime());
-          fetchedHistory.sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime());
-
-          setPendingRequests(fetchedPending);
-          setHistoryRequests(fetchedHistory);
-        } else {
-          setPendingRequests([]);
-          setHistoryRequests([]);
         }
-        setLoading(false);
-        setRefreshing(false);
-      }, (error) => {
-        console.error("Error fetching real-time requests:", error);
-        Alert.alert("Error", "Failed to load requests in real-time. Please try again.");
-        setLoading(false);
-        setRefreshing(false);
-      });
 
-      return unsubscribe; // This now correctly returns the unsubscribe function
+        fetchedPending.sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime());
+        fetchedHistory.sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime());
 
-    } catch (error) {
-      // Handle immediate errors during listener setup
-      console.error('Error setting up bill requests listener:', error);
-      Alert.alert('Error', 'Failed to set up real-time request listener. Please try again.');
+        setPendingRequests(fetchedPending);
+        setHistoryRequests(fetchedHistory);
+      } else {
+        setPendingRequests([]);
+        setHistoryRequests([]);
+      }
       setLoading(false);
       setRefreshing(false);
-      return () => {}; // Return a no-op function in case of immediate error
-    }
+    }, (error) => {
+      console.error("Error fetching real-time requests:", error);
+      setModalMessage("Failed to load requests in real-time. Please try again.");
+      setShowErrorModal(true);
+      setLoading(false);
+      setRefreshing(false);
+    });
+
+    return unsubscribe;
   }, [currentUserUid]);
 
   useEffect(() => {
-    // The fetchRequests now directly returns the unsubscribe function
     const unsubscribe = fetchRequests();
     return () => {
-      // Call the unsubscribe function when the component unmounts or dependencies change
       unsubscribe();
     };
-  }, [fetchRequests]); // Dependency array for useEffect
+  }, [fetchRequests]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // When refreshing, we re-run fetchRequests which will set up a new listener
-    // The previous listener will be cleaned up by useEffect's return function
     fetchRequests();
   }, [fetchRequests]);
 
@@ -135,13 +129,13 @@ const PayRequest = () => {
     action: 'paid' | 'declined'
   ) => {
     if (!currentUserUid) {
-      Alert.alert("Error", "User not authenticated.");
+      setModalMessage("User not authenticated.");
+      setShowErrorModal(true);
       return;
     }
 
     if (action === 'paid') {
-      // Redirect to Payment screen with necessary details
-      navigation.navigate('Payment', { // This line is now correctly typed
+      navigation.navigate('payment', {
         recipientUid: request.senderUid,
         amountToPay: request.amount.toFixed(2),
         billId: request.billId,
@@ -150,48 +144,91 @@ const PayRequest = () => {
       return;
     }
 
-    Alert.alert(
-      `Confirm Decline`,
-      `Are you sure you want to decline the request from ${request.senderName} for ₹${request.amount.toFixed(2)} (${request.description})?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Confirm Decline',
-          onPress: async () => {
-            try {
-              const batch = firestore().batch();
-
-              const recipientDocRef = firestore().collection('users').doc(currentUserUid);
-              batch.update(recipientDocRef, {
-                [`request.${request.billId}.status`]: action,
-              });
-              console.log(`Recipient's request status for ${request.billId} set to ${action}.`);
-
-              const senderDocRef = firestore().collection('users').doc(request.senderUid);
-               batch.update(senderDocRef, {
-                 [`request.${request.billId}.recipients.${currentUserUid}.status`]: action,
-               });
-               console.log(`Sender's recipient status for ${currentUserUid} in bill ${request.billId} set to ${action}.`);
-
-              await batch.commit();
-              Alert.alert('Success', `Request ${action} successfully!`);
-            } catch (error: any) {
-              console.error(`Error ${action} bill request:`, error);
-              Alert.alert('Error', `Failed to ${action} request: ${error.message}`);
-            }
-          },
-        },
-      ]
-    );
+    // For 'declined' action, show custom confirmation modal
+    setRequestToDecline(request);
+    setShowConfirmModal(true);
   };
+
+  const confirmDecline = async () => {
+    if (!requestToDecline || !currentUserUid) return;
+
+    setShowConfirmModal(false); // Close the confirmation modal
+
+    try {
+      const batch = firestore().batch();
+
+      const recipientDocRef = firestore().collection('users').doc(currentUserUid);
+      batch.update(recipientDocRef, {
+        [`request.${requestToDecline.billId}.status`]: 'declined',
+      });
+      console.log(`Recipient's request status for ${requestToDecline.billId} set to declined.`);
+
+      const senderDocRef = firestore().collection('users').doc(requestToDecline.senderUid);
+      batch.update(senderDocRef, {
+        [`request.${requestToDecline.billId}.recipients.${currentUserUid}.status`]: 'declined',
+      });
+      console.log(`Sender's recipient status for ${currentUserUid} in bill ${requestToDecline.billId} set to declined.`);
+
+      await batch.commit();
+      setModalMessage('Request declined successfully!');
+      setShowSuccessModal(true);
+      setRequestToDecline(null); // Clear the request
+    } catch (error: any) {
+      console.error(`Error declining bill request:`, error);
+      setModalMessage(`Failed to decline request: ${error.message}`);
+      setShowErrorModal(true);
+    }
+  };
+
+  const renderRequestCard = (req: BillRequest, isHistory: boolean = false) => (
+    <View key={req.billId} style={[styles.requestCard, isHistory && styles.historyCard]}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardDescription}>{req.description}</Text>
+        <Text style={[
+          styles.cardAmount,
+          req.status === 'paid' ? styles.paidAmount :
+          req.status === 'declined' ? styles.declinedAmount :
+          styles.pendingAmount // Apply specific style for pending
+        ]}>
+          ₹{req.amount.toFixed(2)}
+        </Text>
+      </View>
+      <Text style={styles.cardSender}>From: {req.senderName}</Text>
+      <Text style={styles.cardDate}>
+        {isHistory ? 'Status: ' : 'Requested on: '}
+        {isHistory && (
+          <Text style={{ fontWeight: 'bold', color: req.status === 'paid' ? '#4CAF50' : '#FF5252' }}>
+            {req.status.charAt(0).toUpperCase() + req.status.slice(1)}{' '}
+          </Text>
+        )}
+        {isHistory ? 'on: ' : ''}
+        {req.timestamp?.toDate()?.toLocaleDateString() || 'N/A'}
+      </Text>
+      {!isHistory && (
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.payButton}
+            onPress={() => handleRequestAction(req, 'paid')}
+          >
+            <MaterialIcons name="check" size={20} color="#fff" />
+            <Text style={styles.payButtonText}>Pay</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.declineButton}
+            onPress={() => handleRequestAction(req, 'declined')}
+          >
+            <MaterialIcons name="close" size={20} color="#fff" />
+            <Text style={styles.declineButtonText}>Decline</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1A73E8" />
+        <ActivityIndicator size="large" color="#009688" />
         <Text style={styles.loadingText}>Loading your requests...</Text>
       </View>
     );
@@ -199,85 +236,126 @@ const PayRequest = () => {
 
   return (
     <SafeAreaView style={styles.fullScreenContainer}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={28} color="#FFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Bill Requests</Text>
+        <View style={{ width: 28 }} /> {/* Placeholder for alignment */}
+      </View>
+
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#009688" />
         }
       >
-        <Text style={styles.header}>💰 Your Bill Requests</Text>
-
-        {pendingRequests.length === 0 && historyRequests.length === 0 && (
+        {pendingRequests.length === 0 && historyRequests.length === 0 ? (
           <View style={styles.emptyState}>
-            <MaterialIcons name="inbox" size={80} color="#ccc" />
+            <MaterialIcons name="inbox" size={80} color="#A0A0A0" />
             <Text style={styles.emptyStateText}>No bill requests found.</Text>
             <Text style={styles.emptyStateSubText}>
               When someone splits a bill with you, it will appear here.
             </Text>
           </View>
-        )}
-
-        {pendingRequests.length > 0 && (
+        ) : (
           <>
-            <Text style={styles.sectionTitle}>Pending Requests</Text>
-            {pendingRequests.map((req) => (
-              <View key={req.billId} style={styles.requestCard}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardDescription}>{req.description}</Text>
-                  <Text style={styles.cardAmount}>₹{req.amount.toFixed(2)}</Text>
-                </View>
-                <Text style={styles.cardSender}>From: {req.senderName}</Text>
-                <Text style={styles.cardDate}>
-                  Requested on:{' '}
-                  {req.timestamp?.toDate()?.toLocaleDateString() || 'N/A'}
-                </Text>
-                <View style={styles.cardActions}>
-                  <TouchableOpacity
-                    style={styles.payButton}
-                    onPress={() => handleRequestAction(req, 'paid')}
-                  >
-                    <MaterialIcons name="check" size={20} color="#fff" />
-                    <Text style={styles.payButtonText}>Pay</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.declineButton}
-                    onPress={() => handleRequestAction(req, 'declined')}
-                  >
-                    <MaterialIcons name="close" size={20} color="#fff" />
-                    <Text style={styles.declineButtonText}>Decline</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </>
-        )}
+            {pendingRequests.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Pending Requests</Text>
+                {pendingRequests.map((req) => renderRequestCard(req))}
+              </>
+            )}
 
-        {historyRequests.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Request History</Text>
-            {historyRequests.map((req) => (
-              <View key={req.billId} style={[styles.requestCard, styles.historyCard]}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardDescription}>{req.description}</Text>
-                  <Text style={[styles.cardAmount, req.status === 'paid' ? styles.paidAmount : styles.declinedAmount]}>
-                    ₹{req.amount.toFixed(2)}
-                  </Text>
-                </View>
-                <Text style={styles.cardSender}>From: {req.senderName}</Text>
-                <Text style={styles.cardDate}>
-                  Status:{' '}
-                  <Text style={{ fontWeight: 'bold', color: req.status === 'paid' ? '#4CAF50' : '#FF5252' }}>
-                    {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                  </Text>{' '}
-                  on:{' '}
-                  {req.timestamp?.toDate()?.toLocaleDateString() || 'N/A'}
-                </Text>
-              </View>
-            ))}
+            {historyRequests.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Request History</Text>
+                {historyRequests.map((req) => renderRequestCard(req, true))}
+              </>
+            )}
           </>
         )}
       </ScrollView>
+
+      {/* Custom Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showConfirmModal}
+        onRequestClose={() => setShowConfirmModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <MaterialIcons name="warning" size={40} color="#FFC107" style={styles.modalIcon} />
+            <Text style={styles.modalTitle}>Confirm Decline</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to decline the request from{' '}
+              <Text style={styles.modalHighlightText}>{requestToDecline?.senderName}</Text> for{' '}
+              <Text style={styles.modalHighlightText}>₹{requestToDecline?.amount.toFixed(2)}</Text>{' '}
+              ({requestToDecline?.description})?
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={() => setShowConfirmModal(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalConfirmButton]}
+                onPress={confirmDecline}
+              >
+                <Text style={styles.modalButtonText}>Decline</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showSuccessModal}
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <MaterialIcons name="check-circle" size={40} color="#4CAF50" style={styles.modalIcon} />
+            <Text style={styles.modalTitle}>Success!</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalConfirmButton]}
+              onPress={() => setShowSuccessModal(false)}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showErrorModal}
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <MaterialIcons name="error" size={40} color="#FF5252" style={styles.modalIcon} />
+            <Text style={styles.modalTitle}>Error</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalConfirmButton]}
+              onPress={() => setShowErrorModal(false)}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -285,13 +363,11 @@ const PayRequest = () => {
 const styles = StyleSheet.create({
   fullScreenContainer: {
     flex: 1,
-    backgroundColor: '#F0F2F5',
+    backgroundColor: '#F8F5F0', // Light cream background from Home screen
   },
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F5',
     paddingHorizontal: 20,
-    paddingTop: 20,
   },
   scrollContent: {
     paddingBottom: 30,
@@ -300,28 +376,46 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F0F2F5',
+    backgroundColor: '#F8F5F0',
   },
   loadingText: {
     color: '#666',
     fontSize: 16,
     marginTop: 10,
   },
+  // Header styles (consistent with MyQRCode.tsx)
   header: {
-    fontSize: 26,
-    color: '#333333',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#009688', // Darker Teal from Home banner
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    paddingTop: 45, // To account for SafeAreaView and status bar
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+    marginBottom: 20, // Add margin below header
+  },
+  backButton: {
+    padding: 5,
+  },
+  headerTitle: {
+    fontSize: 22,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 30,
+    color: '#FFF',
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: '#333333',
     marginBottom: 15,
-    marginTop: 25,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    marginTop: 10,
+    // Removed borderBottom for cleaner look, relies on card separation
     paddingBottom: 5,
   },
   emptyState: {
@@ -329,19 +423,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 50,
+    paddingHorizontal: 30,
   },
   emptyStateText: {
     fontSize: 20,
     color: '#888',
     marginTop: 20,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   emptyStateSubText: {
     fontSize: 16,
     color: '#aaa',
     marginTop: 10,
     textAlign: 'center',
-    paddingHorizontal: 30,
   },
   requestCard: {
     backgroundColor: '#FFFFFF',
@@ -349,7 +444,7 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#EBF2FB',
+    borderColor: '#E0E0E0', // Lighter border
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -357,7 +452,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   historyCard: {
-    opacity: 0.7, // Dim history cards slightly
+    opacity: 0.8, // Dim history cards slightly
+    backgroundColor: '#F0F0F0', // Slightly different background for history
   },
   cardHeader: {
     flexDirection: 'row',
@@ -375,7 +471,9 @@ const styles = StyleSheet.create({
   cardAmount: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#1A73E8', // Blue for pending
+  },
+  pendingAmount: {
+    color: '#009688', // Teal for pending amount
   },
   paidAmount: {
     color: '#4CAF50', // Green for paid
@@ -400,7 +498,7 @@ const styles = StyleSheet.create({
   },
   payButton: {
     flexDirection: 'row',
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#4CAF50', // Green for Pay
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 10,
@@ -422,7 +520,7 @@ const styles = StyleSheet.create({
   },
   declineButton: {
     flexDirection: 'row',
-    backgroundColor: '#FF5252',
+    backgroundColor: '#FF5252', // Red for Decline
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 10,
@@ -441,6 +539,77 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  // Custom Modal Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Semi-transparent black overlay
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 15,
+  },
+  modalIcon: {
+    marginBottom: 15,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  modalHighlightText: {
+    fontWeight: 'bold',
+    color: '#009688', // Teal for highlights in modal message
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    marginHorizontal: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalCancelButton: {
+    backgroundColor: '#757575', // Grey for cancel
+  },
+  modalConfirmButton: {
+    backgroundColor: '#009688', // Teal for confirm/OK
+  },
+  modalButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

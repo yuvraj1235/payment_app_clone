@@ -4,7 +4,7 @@
     "slug": "gpay",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.jpg",
+    "icon": "./assets/images/favicon.png",
     "scheme": "gpay",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,

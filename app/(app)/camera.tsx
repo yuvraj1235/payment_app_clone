@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,14 @@ import {
   Alert,
   Platform,
   Linking,
-  Dimensions, // Import Dimensions for responsive sizing
-  ActivityIndicator, // <--- ADDED THIS IMPORT
+  Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useNavigation } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { SafeAreaView } from 'react-native-safe-area-context'; // For proper safe area handling
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const screenWidth = Dimensions.get('window').width;
 const screenHeight = Dimensions.get('window').height;
@@ -24,31 +25,37 @@ type RootStackParamList = {
   mypage: undefined;
   Camera: undefined;
   Payment: { recipientUid: string };
-  // Add other routes as needed if used by navigation
 };
 
 const Camera = () => {
-  const navigation = useNavigation<RootStackParamList>(); // Cast navigation to the defined type
+  const navigation = useNavigation<RootStackParamList>();
+  const isFocused = useIsFocused();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-  const [flashMode, setFlashMode] = useState<'off' | 'torch'>('off'); // Explicitly type flashMode
+  const [flashMode, setFlashMode] = useState<'off' | 'torch'>('off');
+  const [cameraKey, setCameraKey] = useState(0); // New state to force CameraView remount
 
-  // Handle permission request state
+  // Reset scanned state and force camera remount when the screen comes into focus
+  useEffect(() => {
+    if (isFocused) {
+      setScanned(false);
+      setCameraKey(prevKey => prevKey + 1); // Change key to force remount
+    }
+  }, [isFocused]);
+
   if (!permission) {
-    // Camera permissions are still loading
     return (
       <View style={styles.permissionContainer}>
-        <ActivityIndicator size="large" color="#1A73E8" />
+        <ActivityIndicator size="large" color="#009688" />
         <Text style={styles.permissionMessage}>Loading camera permissions...</Text>
       </View>
     );
   }
 
   if (!permission.granted) {
-    // Camera permissions are not granted yet
     return (
       <View style={styles.permissionContainer}>
-        <MaterialIcons name="videocam-off" size={60} color="#B0B0B0" style={styles.permissionIcon} />
+        <MaterialIcons name="videocam-off" size={60} color="#009688" style={styles.permissionIcon} />
         <Text style={styles.permissionMessage}>
           We need your permission to access the camera for QR code scanning.
         </Text>
@@ -58,7 +65,6 @@ const Camera = () => {
         <TouchableOpacity style={styles.permissionButtonSecondary} onPress={() => navigation.goBack()}>
           <Text style={styles.permissionButtonTextSecondary}>Go Back</Text>
         </TouchableOpacity>
-        {/* Provide a direct link to app settings on iOS */}
         {Platform.OS === 'ios' && (
           <TouchableOpacity style={styles.permissionButtonSecondary} onPress={() => Linking.openURL('app-settings:')}>
             <Text style={styles.permissionButtonTextSecondary}>Open App Settings</Text>
@@ -68,9 +74,8 @@ const Camera = () => {
     );
   }
 
-  // Handler for successful barcode scan
   const handleBarCodeScanned = ({ data }: { type: string; data: string }) => {
-    setScanned(true); // Prevent multiple scans
+    setScanned(true); // Disable further scans immediately
     Alert.alert(
       "QR Code Scanned",
       `Scanned data: ${data}`,
@@ -78,9 +83,9 @@ const Camera = () => {
         {
           text: "OK",
           onPress: () => {
-            // Navigate to Payment screen with the scanned data (UID)
             navigation.navigate('Payment', { recipientUid: data });
-            setScanned(false); // Reset scanned state after navigation
+            // 'scanned' state will be reset by useIsFocused when returning to this screen.
+            // No explicit setScanned(false) here to avoid race conditions with navigation.
           }
         },
         {
@@ -92,53 +97,54 @@ const Camera = () => {
     );
   };
 
-  // Toggle flashlight mode
   const toggleFlash = () => {
     setFlashMode(current => (current === 'off' ? 'torch' : 'off'));
   };
 
-  // Handler for "My QR Code" button
   const handleShowMyQrCode = () => {
-    Alert.alert('My QR Code', 'This feature will show your personal QR code for others to scan. Coming soon!');
-  };
+   router.push('/myqr')  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <CameraView
-        style={styles.camera}
-        facing={'back'}
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned} // Only scan if not already scanned
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        enableTorch={flashMode === 'torch'}
-      >
-        {/* Header Overlay */}
-        <View style={styles.headerOverlay}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
-            <MaterialIcons name="arrow-back" size={28} color="#FFF" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Scan QR Code</Text>
-          {/* Placeholder for alignment or future action */}
-          <View style={{ width: 44 }} /> 
-        </View>
+      {/* Conditionally render CameraView only when the screen is focused */}
+      {isFocused && (
+        <CameraView
+          key={cameraKey} // This key ensures the component remounts
+          style={styles.camera}
+          facing={'back'}
+          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          enableTorch={flashMode === 'torch'}
+        >
+          {/* Header Overlay */}
+          <View style={styles.headerOverlay}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
+              <MaterialIcons name="arrow-back" size={28} color="#FFF" />
+            </TouchableOpacity>
+            <Text style={styles.title}>Scan QR Code</Text>
+            {/* Placeholder for alignment or future action */}
+            <View style={{ width: 44 }} />
+          </View>
 
-        {/* QR Scanning Frame */}
-        <View style={styles.qrFrameContainer}>
-          <View style={styles.qrBox} />
-          <Text style={styles.scanInstructionText}>Align QR code within the frame</Text>
-        </View>
+          {/* QR Scanning Frame */}
+          <View style={styles.qrFrameContainer}>
+            <View style={styles.qrBox} />
+            <Text style={styles.scanInstructionText}>Align QR code within the frame</Text>
+          </View>
 
-        {/* Bottom Controls */}
-        <View style={styles.bottomControls}>
-          <TouchableOpacity onPress={toggleFlash} style={styles.controlButton}>
-            <MaterialIcons name={flashMode === 'torch' ? 'flashlight-on' : 'flashlight-off'} size={30} color="#FFF" />
-            <Text style={styles.controlButtonText}>Flash</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleShowMyQrCode} style={styles.controlButton}>
-            <MaterialIcons name="qr-code-2" size={30} color="#FFF" />
-            <Text style={styles.controlButtonText}>My QR Code</Text>
-          </TouchableOpacity>
-        </View>
-      </CameraView>
+          {/* Bottom Controls */}
+          <View style={styles.bottomControls}>
+            <TouchableOpacity onPress={toggleFlash} style={styles.controlButton}>
+              <MaterialIcons name={flashMode === 'torch' ? 'flashlight-on' : 'flashlight-off'} size={30} color="#FFF" />
+              <Text style={styles.controlButtonText}>Flash</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleShowMyQrCode} style={styles.controlButton}>
+              <MaterialIcons name="qr-code-2" size={30} color="#FFF" />
+              <Text style={styles.controlButtonText}>My QR Code</Text>
+            </TouchableOpacity>
+          </View>
+        </CameraView>
+      )}
 
       {/* "Scan Again" button - only visible after a scan */}
       {scanned && (
@@ -191,14 +197,13 @@ const styles = StyleSheet.create({
   qrBox: {
     width: screenWidth * 0.7, // 70% of screen width
     height: screenWidth * 0.7, // Maintain aspect ratio
-    borderColor: '#1A73E8', // Vibrant blue border
+    borderColor: '#009688', // Vibrant green border
     borderWidth: 3, // Thicker border
     borderRadius: 15, // Rounded corners for the frame
     backgroundColor: 'transparent', // Transparent inside
     overflow: 'hidden', // Ensures anything inside is clipped
     justifyContent: 'center',
     alignItems: 'center',
-    // You can add a subtle pulsing animation here for creativity if desired
   },
   scanInstructionText: {
     color: '#FFF',
@@ -233,11 +238,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 100, // Position above the bottom nav (if any) or from screen bottom
     alignSelf: 'center',
-    backgroundColor: '#1A73E8', // Vibrant blue button
+    backgroundColor: '#009688', // Primary green button
     paddingVertical: 14, // Larger touch area
     paddingHorizontal: 30, // Wider button
     borderRadius: 30, // Pill shape
-    shadowColor: '#1A73E8',
+    shadowColor: '#009688',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -255,25 +260,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#F0F2F5', // Light background matching app theme
+    backgroundColor: '#E0F2F1', // Light background matching app theme
   },
   permissionIcon: {
     marginBottom: 20,
   },
   permissionMessage: {
-    color: '#4A4A4A',
+    color: '#004D40',
     fontSize: 18,
     textAlign: 'center',
     marginBottom: 25,
     lineHeight: 25,
   },
   permissionButton: {
-    backgroundColor: '#1A73E8',
+    backgroundColor: '#009688',
     paddingVertical: 14,
     paddingHorizontal: 25,
     borderRadius: 10,
     marginBottom: 15,
-    shadowColor: '#1A73E8',
+    shadowColor: '#009688',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 5,
@@ -285,7 +290,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   permissionButtonSecondary: {
-    borderColor: '#B0B0B0',
+    borderColor: '#009688',
     borderWidth: 1,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -293,7 +298,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   permissionButtonTextSecondary: {
-    color: '#888',
+    color: '#00695C',
     fontSize: 15,
     fontWeight: '500',
   },

@@ -6,31 +6,31 @@ import {
   TextInput,
   StyleSheet,
   Alert,
-  StatusBar, // For status bar styling
-  Dimensions, // For responsive sizing
-  ActivityIndicator, // For loading state
+  StatusBar,
+  Dimensions,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
-import { useNavigation } from 'expo-router'; 
-import AntDesignIcon from 'react-native-vector-icons/AntDesign';
-import { getAuth, createUserWithEmailAndPassword } from '@react-native-firebase/auth'; // Keeping getAuth as per your code
+import { useNavigation, router } from 'expo-router'; 
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { getAuth, createUserWithEmailAndPassword } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
-import { SafeAreaView } from 'react-native-safe-area-context'; // For proper safe area handling
-import Google from './Google'; // Importing the Google component
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Google from './Google'; 
 
 const { width, height } = Dimensions.get('window');
 
-const SignIn = () => { // This component acts as a Sign-Up/Register page
+const SignIn = () => {
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
-  const [loading, setLoading] = useState(false); // New loading state
+  const [loading, setLoading] = useState(false);
 
-  // Set status bar style for the light theme
   useEffect(() => {
-    StatusBar.setBarStyle('dark-content', true); // Dark icons on light background
-    return () => StatusBar.setBarStyle('default', true); // Reset on unmount
+    StatusBar.setBarStyle('light-content', true);
+    return () => StatusBar.setBarStyle('default', true);
   }, []);
 
   const handleSignUp = () => {
@@ -39,12 +39,10 @@ const SignIn = () => { // This component acts as a Sign-Up/Register page
       return;
     }
 
-    setLoading(true); // Start loading
+    setLoading(true);
     createUserWithEmailAndPassword(getAuth(), email, password)
       .then(userCredential => {
         const user = userCredential.user;
-
-        // Save user data to Firestore
         return firestore()
           .collection('users')
           .doc(user.uid)
@@ -53,21 +51,21 @@ const SignIn = () => { // This component acts as a Sign-Up/Register page
               email: email,
               username: username,
               createdAt: firestore.FieldValue.serverTimestamp(),
-              balance: 0, // Initialize balance to 0 for new users
+              balance: 0,
             },
-            { merge: true } // Use merge to avoid overwriting other potential fields
+            { merge: true }
           );
       })
       .then(() => {
         Alert.alert('Success', 'Account created successfully! You can now log in.');
         console.log('User data saved/merged!');
-        setLoading(false); // Stop loading on success
-        navigation.navigate('index'); // Navigate back to the login page
+        setLoading(false);
+        router.push('/(authentication)/login');
       })
       .catch(error => {
-        setLoading(false); // Stop loading on error
+        setLoading(false);
         console.error('Signup error:', error);
-        let errorMessage = error.message; // Default error message
+        let errorMessage = error.message;
         switch (error.code) {
           case 'auth/email-already-in-use':
             errorMessage = 'The email address is already in use by another account.';
@@ -86,21 +84,24 @@ const SignIn = () => { // This component acts as a Sign-Up/Register page
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Top Blue Header Section for Register */}
+    <SafeAreaView style={styles.fullScreenContainer}>
       <View style={styles.topHeaderBackground}>
-        {/* Placeholder for a register icon or logo */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={28} color="#FFF" />
+          </TouchableOpacity>
+          <View style={{ width: 28 }} />
+        </View>
         <View style={styles.registerIconCircle}>
-          <AntDesignIcon name="form" size={50} color="#FFFFFF" />
+          <MaterialIcons name="person-add-alt" size={50} color="#FFFFFF" />
         </View>
         <Text style={styles.welcomeText}>REGISTER</Text>
       </View>
 
-      {/* Main Content Card */}
       <View style={styles.contentCard}>
         {loading && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#007BFF" />
+            <ActivityIndicator size="large" color="#009688" />
             <Text style={styles.loadingText}>Creating Account...</Text>
           </View>
         )}
@@ -109,60 +110,48 @@ const SignIn = () => { // This component acts as a Sign-Up/Register page
         <Text style={styles.cardHeading}>account</Text>
 
         <View style={styles.inputGroup}>
-          <AntDesignIcon name="user" size={20} color="#6C757D" style={styles.inputIcon} />
+          <MaterialIcons name="person-outline" size={20} color="#00695C" style={styles.inputIcon} />
           <TextInput
             style={styles.inputBox}
-            placeholder="Full Name" // Changed to Full Name as per image
+            placeholder="Full Name"
             value={username}
             onChangeText={setUsername}
-            autoCapitalize="words" // Capitalize first letter of each word
-            placeholderTextColor="#ADB5BD"
+            autoCapitalize="words"
+            placeholderTextColor="#A7B7B3"
             editable={!loading}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <AntDesignIcon name="mail" size={20} color="#6C757D" style={styles.inputIcon} />
+          <MaterialIcons name="email" size={20} color="#00695C" style={styles.inputIcon} />
           <TextInput
             style={styles.inputBox}
-            placeholder="Username / Email" // As per image for consistency
+            placeholder="Username / Email"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
-            placeholderTextColor="#ADB5BD"
+            placeholderTextColor="#A7B7B3"
             editable={!loading}
           />
         </View>
-        
-        {/* You could add a phone number input here if needed based on the image
-        // <View style={styles.inputGroup}>
-        //   <AntDesignIcon name="phone" size={20} color="#6C757D" style={styles.inputIcon} />
-        //   <TextInput
-        //     style={styles.inputBox}
-        //     placeholder="Phone Number"
-        //     keyboardType="phone-pad"
-        //     placeholderTextColor="#ADB5BD"
-        //     editable={!loading}
-        //   />
-        // </View> */}
 
         <View style={styles.inputGroup}>
-          <AntDesignIcon name="lock" size={20} color="#6C757D" style={styles.inputIcon} />
+          <MaterialIcons name="lock" size={20} color="#00695C" style={styles.inputIcon} />
           <TextInput
             style={styles.passwordInput}
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
-            placeholderTextColor="#ADB5BD"
+            placeholderTextColor="#A7B7B3"
             editable={!loading}
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={loading} style={styles.eyeIconContainer}>
-            <AntDesignIcon
-              name={showPassword ? 'eye' : 'eyeo'}
+            <MaterialIcons
+              name={showPassword ? 'visibility-off' : 'visibility'}
               size={20}
-              color="#ADB5BD"
+              color="#A7B7B3"
             />
           </TouchableOpacity>
         </View>
@@ -171,13 +160,17 @@ const SignIn = () => { // This component acts as a Sign-Up/Register page
           <Text style={styles.signUpButtonText}>Sign Up</Text>
         </TouchableOpacity>
 
-        {/* Google Login Button (added here) */}
+        <View style={styles.orContainer}>
+          <View style={styles.line} />
+          <Text style={styles.orText}>OR</Text>
+          <View style={styles.line} />
+        </View>
+
         <View style={styles.googleButtonContainer}>
           <Google />
         </View>
 
-        {/* Already have an account? Log in */}
-        <TouchableOpacity onPress={() => navigation.navigate('index')} disabled={loading} style={styles.loginPrompt}>
+        <TouchableOpacity onPress={() => router.push('/(authentication)/login')} disabled={loading} style={styles.loginPrompt}>
           <Text style={styles.loginPromptText}>Already have an account?</Text>
           <Text style={styles.loginLink}>Log in</Text>
         </TouchableOpacity>
@@ -187,22 +180,34 @@ const SignIn = () => { // This component acts as a Sign-Up/Register page
 };
 
 const styles = StyleSheet.create({
-  container: {
+  fullScreenContainer: {
     flex: 1,
-    backgroundColor: '#007BFF', // Background blue
+    backgroundColor: '#009688',
   },
   topHeaderBackground: {
-    backgroundColor: '#007BFF', // Consistent blue
-    height: height * 0.35, // Adjust height as per design image
+    backgroundColor: '#009688',
+    height: height * 0.35,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 50, // Space for status bar
+    paddingTop: 50,
   },
-  registerIconCircle: { // New style for register page icon
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 20,
+    position: 'absolute',
+    top: Platform.OS === 'android' ? 10 : 50, // Adjusted for better placement on Android
+  },
+  backButton: {
+    padding: 5,
+  },
+  registerIconCircle: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.2)', // Semi-transparent white circle
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
@@ -214,57 +219,58 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   contentCard: {
-    backgroundColor: '#FFFFFF', // White card background
-    borderRadius: 30, // Large border radius for the card
+    backgroundColor: '#FFFFFF',
+    borderRadius: 30,
     padding: 30,
-    marginHorizontal: 20, // Horizontal margin for the card
-    marginTop: -50, // Overlap with the top blue section
+    marginHorizontal: 20,
+    marginTop: -70,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 15,
-    position: 'relative', // For loading overlay positioning
+    position: 'relative',
+    minHeight: height * 0.7,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Semi-transparent white overlay
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 30, // Match parent card radius
+    borderRadius: 30,
     zIndex: 10,
   },
   loadingText: {
-    color: '#007BFF',
+    color: '#009688',
     marginTop: 10,
     fontSize: 16,
     fontWeight: '600',
   },
-  cardHeading: { // New heading style for inside the card
-    fontSize: 32, // Smaller than main welcome, but still prominent
+  cardHeading: {
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#343A40', // Dark text
+    color: '#343A40',
     marginBottom: 10,
     textAlign: 'left',
   },
   inputGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA', // Very light grey background for input fields
-    borderRadius: 12, // Rounded input fields
-    marginBottom: 15, // Space between input groups
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    marginBottom: 15,
     paddingHorizontal: 15,
-    height: 55, // Fixed height for input fields
+    height: 55,
     borderWidth: 1,
-    borderColor: '#E9ECEF', // Light border
+    borderColor: '#E0E0E0',
   },
   inputIcon: {
     marginRight: 10,
   },
   inputBox: {
-    flex: 1, // Take remaining space
+    flex: 1,
     fontSize: 16,
-    color: '#343A40', // Dark text color
+    color: '#343A40',
   },
   passwordInput: {
     flex: 1,
@@ -273,69 +279,61 @@ const styles = StyleSheet.create({
   },
   eyeIconContainer: {
     paddingLeft: 10,
-    paddingVertical: 5, // Make touch target larger
+    paddingVertical: 5,
   },
-  forgotPasswordText: { // Keeping this style for consistency, though not used in default Sign In page
-    color: '#007BFF',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'right',
-    marginBottom: 25,
-  },
-  signUpButton: { // Style for the main sign up button
-    backgroundColor: '#007BFF', // Blue button
+  signUpButton: {
+    backgroundColor: '#009688',
     paddingVertical: 15,
-    borderRadius: 12, // Rounded button
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#007BFF', // Blue shadow
+    shadowColor: '#009688',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 15,
     elevation: 10,
-    // marginTop: 25, // Space above the button
-    marginBottom: 25, // Space below the button
+    marginBottom: 25,
   },
   signUpButtonText: {
-    color: '#FFFFFF', // White text
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
   },
-  googleButtonContainer: {
-    marginTop: -20, // Space above Google button
-    // marginBottom: 20, // Added space below Google button for better separation
+  orContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 25,
   },
-  loginPrompt: { // Style for "Already have an account?" text
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E0E0E0',
+  },
+  orText: {
+    marginHorizontal: 10,
+    color: '#A7B7B3',
+    fontSize: 14,
+  },
+  googleButtonContainer: {
+    marginTop: 20,
+  },
+  loginPrompt: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 15,
   },
   loginPromptText: {
-    color: '#6C757D', // Softer grey text
+    color: '#6C757D',
     fontSize: 15,
     marginRight: 5,
   },
   loginLink: {
-    color: '#007BFF', // Blue link
+    color: '#009688',
     fontSize: 15,
     fontWeight: 'bold',
     textDecorationLine: 'underline',
-  },
-  bottomNavArrow: {
-    backgroundColor: '#007BFF', // Blue background for arrow
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'absolute',
-    bottom: 30, // Position from bottom
-    left: 30, // Position from left to match the image (arrow pointing left)
-    shadowColor: '#007BFF',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 15,
-    elevation: 12,
   },
 });
 

@@ -1,247 +1,407 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, Dimensions, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Dimensions,
+  ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
+  Modal
+} from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
-import { useRoute } from '@react-navigation/native'; // Keep useRoute for navigation params
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { router } from 'expo-router';
+import LottieView from 'lottie-react-native';
+
 export type RootStackParamList = {
-  VerifyPin: { onSuccess?: () => void }; // Assuming VerifyPin might receive an onSuccess function
-  // Add other routes here, e.g.,
-  // Home: undefined;
-  // Profile: { userId: string };
+  VerifyPin: { onSuccess?: () => void };
+  PaymentSuccess: {
+    amount: number;
+    recipientUsername: string;
+    selectedBank: { name: string; lastDigits: string };
+    billDescription?: string;
+  };
+  login: undefined;
 };
+
 type VerifyPinScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
   'VerifyPin'
 >;
 type VerifyPinScreenRouteProp = RouteProp<RootStackParamList, 'VerifyPin'>;
 
-// 4. Use these types in your component's props
 interface VerifyPinProps {
   navigation: VerifyPinScreenNavigationProp;
   route: VerifyPinScreenRouteProp;
 }
-const { width } = Dimensions.get('window');
-
-// Define the BUTTON_SIZE based on screen width
-const BUTTON_SIZE = width / 4 - 20;
 
 export default function VerifyPin({ navigation }: VerifyPinProps) {
-  const route = useRoute<VerifyPinScreenRouteProp>(); // Explicitly type useRoute as well
-
-  // Ensure onSuccess is always a function to prevent errors
+  const route = useRoute<VerifyPinScreenRouteProp>();
+  const nav = useNavigation();
   const onSuccess = route.params?.onSuccess || (() => {});
+
   const [userUID, setUserUID] = useState<string | null>(null);
   const [pin, setPin] = useState('');
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true); // To manage loading state for auth
-  const [isVerifyingPin, setIsVerifyingPin] = useState(false); // To manage loading state during PIN verification
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalTitle, setModalTitle] = useState('');
+
+  const lottieRef = React.useRef<LottieView>(null);
 
   useEffect(() => {
     const subscriber = auth().onAuthStateChanged(user => {
       setUserUID(user ? user.uid : null);
-      setIsLoadingAuth(false); // Auth loading finished
+      setIsLoadingAuth(false);
     });
-    return subscriber; // Unsubscribe on component unmount
+    return subscriber;
   }, []);
 
-  const handleKeyPress = (key: string) => {
-    if (isVerifyingPin) return; // Prevent input while verifying
-
-    if (key === 'backspace') {
-      setPin(pin.slice(0, -1));
+  const showCustomModal = (title: string, message: string, type: 'success' | 'error') => {
+    setModalTitle(title);
+    setModalMessage(message);
+    if (type === 'success') {
+      setShowSuccessModal(true);
+      // Play animation when success modal is shown
+      lottieRef.current?.play();
     } else {
-      if (pin.length < 6) {
-        setPin(pin + key);
-      }
+      setShowErrorModal(true);
     }
   };
 
   const handleSubmit = async () => {
-    if (isVerifyingPin) return; // Prevent multiple submissions
+    if (isVerifyingPin) return;
 
     if (pin.length !== 6) {
-      Alert.alert("Invalid PIN", "Please enter a 6-digit PIN.");
+      showCustomModal("Invalid PIN", "Please enter a 6-digit PIN.", 'error');
       return;
     }
 
     if (!userUID) {
-      Alert.alert("Authentication Error", "User not logged in or session expired. Please re-login.");
+      showCustomModal("Authentication Error", "User not logged in or session expired. Please re-login.", 'error');
       return;
     }
 
-    setIsVerifyingPin(true); // Start PIN verification loading
+    setIsVerifyingPin(true);
 
     try {
       const userDoc = await firestore().collection('users').doc(userUID).get();
-      const storedPin = userDoc.data()?.Pin;
+      const storedPin = userDoc.data()?.Pin?.toString();
 
       if (!storedPin) {
-        Alert.alert("No PIN Found", "Please set your PIN first in your profile settings.");
+        showCustomModal("No PIN Found", "Please set your PIN first in your profile settings.", 'error');
         setPin('');
         return;
       }
 
       if (storedPin === pin) {
-        Alert.alert("PIN Verified", "Access granted.");
-        setPin(''); // Clear PIN on success
-        onSuccess(); // Call the callback function passed from the previous screen
-        navigation.goBack(); // Navigate back to the previous screen
+        setPin('');
+        // Show the success modal with animation
+        showCustomModal("PIN Verified", "Access granted.", 'success');
       } else {
-        Alert.alert("Incorrect PIN", "The PIN you entered is incorrect. Please try again.");
-        setPin(''); // Clear PIN on incorrect attempt
+        showCustomModal("Incorrect PIN", "The PIN you entered is incorrect. Please try again.", 'error');
+        setPin('');
       }
-    } catch (error: any) { // Use 'any' for unknown error types from catch block
+    } catch (error: any) {
       console.error("Error verifying PIN: ", error);
-      Alert.alert("Error", error.message || "Something went wrong during PIN verification. Please try again.");
+      showCustomModal("Error", error.message || "Something went wrong during PIN verification. Please try again.", 'error');
     } finally {
-      setIsVerifyingPin(false); // End PIN verification loading
+      setIsVerifyingPin(false);
     }
   };
 
-  const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'backspace', '0', 'submit'];
+  const handleLottieAnimationFinish = useCallback(() => {
+    setShowSuccessModal(false);
+    if (typeof onSuccess === 'function') {
+      onSuccess();
+    } else {
+      nav.navigate('PaymentSuccess', {
+        amount: 999,
+        recipientUsername: 'Default User',
+        selectedBank: { name: 'HDFC Bank', lastDigits: '0123' },
+        billDescription: 'Test payment fallback',
+      });
+    }
+  }, [onSuccess, nav]);
 
   if (isLoadingAuth) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#1A73E8" />
-        <Text style={styles.instruction}>Loading user data...</Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#009688" />
+        <Text style={styles.loadingText}>Loading user data...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>🔒 UPI PIN Verification</Text>
-      <Text style={styles.instruction}>Enter your secure 6-digit PIN</Text>
-
-      <TextInput
-        value={pin.split('').map(char => '•').join('')} // Mask the PIN input
-        style={styles.pinInput}
-        secureTextEntry // Ensures native secure text entry behavior
-        keyboardType="numeric"
-        maxLength={6}
-        editable={false} // Disable direct keyboard input to control via custom keypad
-      />
-
-      <View style={styles.keypad}>
-        {KEYS.map((key) => (
-          <TouchableOpacity
-            key={key}
-            style={[
-              styles.keypadButton,
-              key === 'submit' && styles.submitKey,
-              key === 'backspace' && styles.backspaceKey,
-            ]}
-            onPress={() => key === 'submit' ? handleSubmit() : handleKeyPress(key)}
-            disabled={isVerifyingPin} // Disable buttons during verification
-          >
-            <Text style={styles.keyText}>
-              {key === 'backspace' ? '⌫' : key === 'submit' ? '✓' : key}
-            </Text>
+    <SafeAreaView style={styles.fullScreenContainer}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.container}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={28} color="#FFF" />
           </TouchableOpacity>
-        ))}
-      </View>
-
-      {isVerifyingPin && (
-        <View style={styles.overlayLoading}>
-          <ActivityIndicator size="large" color="#1A73E8" />
-          <Text style={styles.loadingMessage}>Verifying PIN...</Text>
+          <Text style={styles.headerTitle}>UPI PIN</Text>
+          <View style={{ width: 28 }} />
         </View>
-      )}
+
+        <View style={styles.content}>
+          <Text style={styles.title}>🔒 UPI PIN Verification</Text>
+          <Text style={styles.instruction}>Enter your secure 6-digit PIN</Text>
+
+          <TextInput
+            value={pin}
+            onChangeText={setPin}
+            style={styles.pinInput}
+            secureTextEntry
+            keyboardType="numeric"
+            maxLength={6}
+            autoFocus
+          />
+          
+          <TouchableOpacity
+            style={[styles.submitButton, isVerifyingPin && styles.submitButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={isVerifyingPin}
+          >
+            {isVerifyingPin ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.submitButtonText}>Verify PIN</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+      </KeyboardAvoidingView>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showSuccessModal}
+        onRequestClose={handleLottieAnimationFinish}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <LottieView
+              ref={lottieRef}
+              source={require('../../assets/Lottie Lego.json')}
+              autoPlay={false} // Set to false, it will be triggered manually
+              loop={false}
+              style={styles.lottieAnimation}
+              onAnimationFinish={handleLottieAnimationFinish}
+            />
+            <Text style={styles.modalTitle}>{modalTitle}</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleLottieAnimationFinish}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showErrorModal}
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <MaterialIcons name="error" size={40} color="#FF5252" style={styles.modalIcon} />
+            <Text style={styles.modalTitle}>{modalTitle}</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalErrorButton]}
+              onPress={() => setShowErrorModal(false)}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  fullScreenContainer: {
+    flex: 1,
+    backgroundColor: '#EEF4F4',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F5', // Light background color for the screen
-    paddingTop: 60, // Ample top padding
-    paddingHorizontal: 20, // Horizontal padding
-    alignItems: 'center', // Center content horizontally
+    backgroundColor: '#EEF4F4',
+    paddingTop: 0,
   },
-  title: {
-    color: '#333333', // Dark text for readability
-    fontSize: 26,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  instruction: {
-    color: '#666666', // Medium grey for instructions
-    fontSize: 16,
-    marginBottom: 40, // More space below instructions
-    textAlign: 'center',
-  },
-  pinInput: {
-    color: '#1A73E8', // PayZapp blue for PIN text
-    fontSize: 32, // Larger PIN digits
-    letterSpacing: 18, // Increased letter spacing for masked digits
-    textAlign: 'center',
-    paddingVertical: 15, // More vertical padding
-    borderBottomWidth: 3, // Thicker border
-    borderBottomColor: '#1A73E8', // PayZapp blue border
-    width: '75%', // Slightly wider input field
-    marginBottom: 50, // More space below PIN input
-    fontWeight: 'bold', // Make PIN digits bold
-  },
-  keypad: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center', // Center keypad horizontally
-    paddingHorizontal: 10, // Padding for the keypad grid
-  },
-  keypadButton: {
-    width: BUTTON_SIZE + 10, // Slightly larger buttons
-    height: BUTTON_SIZE + 10,
-    borderRadius: (BUTTON_SIZE + 10) / 2, // Perfect circle
-    margin: 8, // Reduced margin for denser grid, but still spacious
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF', // White background for keys
-    shadowColor: '#000', // Subtle shadow for depth
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 5, // Android shadow
+    backgroundColor: '#EEF4F4',
   },
-  keyText: {
-    fontSize: 28, // Larger key text
-    color: '#333333', // Dark text for numbers
-    fontWeight: '600',
+  loadingText: {
+    marginTop: 10,
+    color: '#00695C',
+    fontSize: 16,
   },
-  backspaceKey: {
-    backgroundColor: '#E9ECEF', // Light grey for backspace key
-    shadowColor: '#000', // Subtle shadow
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#009688',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    paddingTop: Platform.OS === 'android' ? 40 : 15,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+    marginBottom: 20,
   },
-  submitKey: {
-    backgroundColor: '#1A73E8', // PayZapp blue for submit key
-    shadowColor: '#1A73E8', // Blue shadow for glow effect
+  backButton: {
+    padding: 5,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 30,
+  },
+  title: {
+    color: '#004D40',
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  instruction: {
+    color: '#00695C',
+    fontSize: 16,
+    marginBottom: 40,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  pinInput: {
+    color: '#009688',
+    fontSize: 36,
+    textAlign: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 3,
+    borderBottomColor: '#009688',
+    width: '80%',
+    marginBottom: 50,
+    fontWeight: 'bold',
+  },
+  submitButton: {
+    backgroundColor: '#009688',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 30,
+    marginTop: 20,
+    width: '80%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#009688',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
     shadowRadius: 12,
     elevation: 10,
   },
-  overlayLoading: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Semi-transparent white overlay
+  submitButtonDisabled: {
+    backgroundColor: '#B2DFDB',
+    shadowColor: '#B2DFDB',
+  },
+  submitButtonText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10, // Ensure it's on top
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
-  loadingMessage: {
-    marginTop: 10,
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 15,
+  },
+  lottieAnimation: {
+    width: 120,
+    height: 120,
+    marginBottom: 15,
+  },
+  modalIcon: {
+    marginBottom: 15,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#004D40',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalMessage: {
     fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+    color: '#00695C',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '80%',
+    shadowColor: '#009688',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+    backgroundColor: '#009688',
+  },
+  modalButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalErrorButton: {
+    backgroundColor: '#FF5252',
+    shadowColor: '#FF5252',
   },
 });

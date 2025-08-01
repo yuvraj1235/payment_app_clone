@@ -9,30 +9,34 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert
+  Alert, // Keeping Alert imported for potential fallbacks
+  Modal, // Import Modal for custom alerts
+  Dimensions
 } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import 'react-native-get-random-values'; // Needed for uuid v4
-import { v4 as uuidv4 } from 'uuid'; // Import uuid for unique IDs
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
+import { useNavigation } from '@react-navigation/native'; // Use for navigation.goBack()
 
-// Define a type for participants to enhance type safety
+const { width } = Dimensions.get('window');
+
 type Participant = {
   uid: string;
   name: string;
   share: number;
 };
 
-// Define a type for dropdown items
 type DropdownItem = {
   label: string;
   value: string;
 };
 
 const SplitBill = () => {
+  const navigation = useNavigation();
   const [totalAmount, setTotalAmount] = useState('');
   const [requestDescription, setRequestDescription] = useState('');
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -43,10 +47,23 @@ const SplitBill = () => {
   const [isSendingRequests, setIsSendingRequests] = useState(false);
   const [sharesCalculated, setSharesCalculated] = useState(false);
 
+  // Modal states for custom alerts
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalType, setModalType] = useState<'success' | 'error' | 'info' | 'warning'>('info');
+
   const currentUserUid = auth().currentUser?.uid;
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
 
-  // Fetch all users for dropdown AND current user's name
+  // Function to display the custom alert modal
+  const displayCustomAlert = useCallback((title: string, message: string, type: 'success' | 'error' | 'info' | 'warning') => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalType(type);
+    setShowCustomModal(true);
+  }, []);
+
   useEffect(() => {
     const fetchUserData = async () => {
       setLoadingUsers(true);
@@ -69,32 +86,32 @@ const SplitBill = () => {
         setCurrentUsername(fetchedCurrentUsername);
 
         if (!fetchedCurrentUsername && currentUserUid) {
-            Alert.alert("User Data Missing", "Could not fetch your username. Please ensure your profile is complete.");
+            displayCustomAlert("User Data Missing", "Could not fetch your username. Please ensure your profile is complete.", 'error');
         }
 
       } catch (error) {
         console.error('Error fetching users or current user data:', error);
-        Alert.alert('Error', 'Failed to load user list or your profile. Please try again.');
+        displayCustomAlert('Error', 'Failed to load user list or your profile. Please try again.', 'error');
       } finally {
         setLoadingUsers(false);
       }
     };
     fetchUserData();
-  }, [currentUserUid]);
+  }, [currentUserUid, displayCustomAlert]);
 
   const addParticipant = () => {
     if (!selectedUser) {
-      Alert.alert('Select User', 'Please select a person to add to the bill.');
+      displayCustomAlert('Select User', 'Please select a person to add to the bill.', 'info');
       return;
     }
     if (selectedUser === currentUserUid) {
-      Alert.alert('Cannot Add Self', 'You are the one splitting the bill. Do not add yourself as a participant.');
+      displayCustomAlert('Cannot Add Self', 'You are the one splitting the bill. Do not add yourself as a participant.', 'info');
       return;
     }
 
     const already = participants.find(p => p.uid === selectedUser);
     if (already) {
-      Alert.alert('Already Added', `${already.name} is already in the list.`);
+      displayCustomAlert('Already Added', `${already.name} is already in the list.`, 'info');
       return;
     }
 
@@ -111,48 +128,80 @@ const SplitBill = () => {
     setSharesCalculated(false);
   };
 
+  const handleShareChange = (uid: string, text: string) => {
+    const newShare = parseFloat(text);
+    setParticipants(prev =>
+      prev.map(p =>
+        p.uid === uid ? { ...p, share: isNaN(newShare) ? 0 : parseFloat(newShare.toFixed(2)) } : p
+      )
+    );
+    setSharesCalculated(false);
+  };
+
   const calculateEqualSharesLocally = () => {
     const total = parseFloat(totalAmount);
     if (isNaN(total) || total <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid positive total amount.');
+      displayCustomAlert('Invalid Amount', 'Please enter a valid positive total amount.', 'error');
       return;
     }
     if (participants.length === 0) {
-      Alert.alert('No Participants', 'Please add at least one person to split the bill.');
+      displayCustomAlert('No Participants', 'Please add at least one person to split the bill.', 'info');
       return;
     }
 
     const shareValue = (total / participants.length);
     setParticipants(participants.map(p => ({ ...p, share: parseFloat(shareValue.toFixed(2)) })));
     setSharesCalculated(true);
-    Alert.alert('Shares Calculated', `Each person owes ₹${shareValue.toFixed(2)}.`);
+    displayCustomAlert('Shares Calculated', `Each person owes ₹${shareValue.toFixed(2)}.`, 'success');
   };
 
   const sendBillRequests = async () => {
-    if (!sharesCalculated) {
-      Alert.alert('Calculate First', 'Please calculate the shares before sending requests.');
+    const total = parseFloat(totalAmount);
+    const sumOfShares = participants.reduce((sum, p) => sum + p.share, 0);
+
+    if (isNaN(total) || total <= 0) {
+      displayCustomAlert('Invalid Total Amount', 'Please enter a valid positive total amount for the bill.', 'error');
       return;
     }
     if (participants.length === 0) {
-      Alert.alert('No Participants', 'Add participants to send requests.');
+      displayCustomAlert('No Participants', 'Add participants to send requests.', 'info');
       return;
     }
     if (!requestDescription.trim()) {
-        Alert.alert('Missing Description', 'Please add a short description for the bill (e.g., "Dinner", "Rent").');
-        return;
+      displayCustomAlert('Missing Description', 'Please add a short description for the bill (e.g., "Dinner", "Rent").', 'info');
+      return;
     }
     if (!currentUserUid || !currentUsername) {
-        Alert.alert('Authentication Error', 'Your user data is not fully loaded. Please try again.');
-        return;
+      displayCustomAlert('Authentication Error', 'Your user data is not fully loaded. Please try again.', 'error');
+      return;
     }
 
+    if (Math.abs(sumOfShares - total) > 0.01) {
+      // Replaced Alert.alert for consistency with custom modal usage
+      displayCustomAlert(
+        'Share Mismatch!',
+        `The sum of individual shares (₹${sumOfShares.toFixed(2)}) does not match the total bill amount (₹${total.toFixed(2)}). Do you want to send requests anyway?`,
+        'warning'
+        // Note: For 'warning' type, the OK button will simply dismiss it.
+        // If you need "Send Anyway" / "Adjust Shares" buttons, you'd need a more complex custom modal that takes callbacks for buttons.
+        // For simplicity with the existing custom modal structure, it will just inform.
+        // If you need action buttons here, a separate, more complex modal structure is required.
+      );
+      // Exit here if mismatch and user needs to be informed (or re-prompted with choices)
+      // If you want "Send Anyway" option, you must use native Alert.alert or a more advanced custom modal.
+      return;
+    }
+
+    proceedSendBillRequests();
+  };
+
+  const proceedSendBillRequests = async () => {
     setIsSendingRequests(true);
     const batch = firestore().batch();
-    const commonBillId = new Date().toISOString().replace(/[^0-9]/g, '');
-    // Generate a unique ID for this entire split request session
+    const commonBillId = uuidv4();
 
     console.log("--- Starting Bill Request Send Transaction ---");
-    //console.log("Common Bill ID:", commonBillId);
+    console.log("Common Bill ID:", commonBillId);
     console.log("Current User UID (Sender):", currentUserUid);
     console.log("Current Username (Sender):", currentUsername);
     console.log("Total Amount:", totalAmount);
@@ -160,59 +209,53 @@ const SplitBill = () => {
     console.log("Participants:", participants);
 
     try {
-      // 1. Update Sender's (current user's) document - Add to 'transhistory' map
       const senderDocRef = firestore().collection('users').doc(currentUserUid);
 
       const senderBillRequestData = {
-        amount: parseFloat(totalAmount), // Total amount of the bill
-        type: 'bill_request_sent', // Type to identify this as a sent request
+        amount: parseFloat(totalAmount),
+        type: 'bill_request_sent',
         description: requestDescription.trim(),
         timestamp: firestore.FieldValue.serverTimestamp(),
-        status: 'pending', // Overall status of this sent request
-        recipients: participants.map(p => ({ // Details for each recipient
+        status: 'pending',
+        recipients: participants.map(p => ({
             uid: p.uid,
             name: p.name,
             share: p.share,
-            status: 'pending' // Individual recipient status
+            status: 'pending'
         })),
-        billId: commonBillId // Store the common bill ID within the record itself for easy lookup
+        billId: commonBillId
       };
 
-      console.log('Sender transhistory entry:', senderBillRequestData);
-
+      console.log('Batch Update: Sender Doc Path:', senderDocRef.path);
+      console.log('Batch Update: Sender Data:', JSON.stringify(senderBillRequestData, null, 2));
       batch.update(senderDocRef, {
         [`request.${commonBillId}`]: senderBillRequestData
       });
-      console.log("Sender document update for transhistory queued.");
 
-      // 2. Update Each Recipient's document - Add to their 'transhistory' map
       for (const participant of participants) {
         const recipientDocRef = firestore().collection('users').doc(participant.uid);
-
         const recipientBillRequestData = {
-          amount: participant.share, // Amount requested from this specific recipient
-          type: 'bill_request_received', // Type to identify this as a received request
+          amount: participant.share,
+          type: 'bill_request_received',
           description: requestDescription.trim(),
           timestamp: firestore.FieldValue.serverTimestamp(),
-          status: 'pending', // Status for this specific received request
+          status: 'pending',
           senderUid: currentUserUid,
           senderName: currentUsername,
-          billId: commonBillId // Store the common bill ID
+          billId: commonBillId
         };
-        console.log(`Recipient transhistory entry for ${participant.name} (${participant.uid}):`, recipientBillRequestData);
-
+        console.log('Batch Update: Recipient Doc Path:', recipientDocRef.path);
+        console.log('Batch Update: Recipient Data for', participant.name, ':', JSON.stringify(recipientBillRequestData, null, 2));
         batch.update(recipientDocRef, {
           [`request.${commonBillId}`]: recipientBillRequestData
         });
-        console.log(`Recipient document update for ${participant.name} queued.`);
       }
 
       console.log('Committing batch...');
       await batch.commit();
       console.log('Batch committed successfully!');
 
-      Alert.alert('Success', 'Bill split requests sent successfully!');
-      // Reset form after sending
+      displayCustomAlert('Success', 'Bill split requests sent successfully!', 'success');
       setTotalAmount('');
       setRequestDescription('');
       setParticipants([]);
@@ -220,21 +263,19 @@ const SplitBill = () => {
     } catch (error: any) {
       console.error('--- Error sending bill requests: ---');
       console.error('Error Object:', error);
-      console.error('Error Code:', error.code); // Look for this in the console!
-      console.error('Error Message:', error.message);
-      Alert.alert('Error', `Failed to send requests: ${error.message || 'Please check console for details.'}`);
+      console.error('Error Code:', error.code || 'N/A');
+      console.error('Error Message:', error.message || 'Unknown error');
+      displayCustomAlert('Error', `Failed to send requests: ${error.message || 'Please check console for details.'}`, 'error');
     } finally {
       setIsSendingRequests(false);
       console.log('--- Finished Bill Request Send Transaction ---');
     }
   };
 
-  // ... rest of the component code (styles, return statement etc. remain unchanged) ...
-
   if (loadingUsers) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1A73E8" />
+        <ActivityIndicator size="large" color="#009688" />
         <Text style={styles.loadingText}>Loading users...</Text>
       </View>
     );
@@ -246,7 +287,13 @@ const SplitBill = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.container}
       >
-        <Text style={styles.header}>💸 Split a Bill</Text>
+        <View style={styles.headerContainer}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>💸 Split a Bill</Text>
+          <View style={styles.headerPlaceholder} />
+        </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <Text style={styles.sectionTitle}>Total Bill Amount</Text>
@@ -254,10 +301,13 @@ const SplitBill = () => {
             style={styles.input}
             placeholder="e.g., 500.75"
             keyboardType="numeric"
-            placeholderTextColor="#888"
+            placeholderTextColor="#A7B7B3"
             value={totalAmount}
             onChangeText={(text) => {
-              setTotalAmount(text);
+              const newText = text.replace(/[^0-9.]/g, '');
+              if (newText.split('.').length > 2) return;
+              if (newText.includes('.') && newText.split('.')[1]?.length > 2) return;
+              setTotalAmount(newText);
               setSharesCalculated(false);
             }}
           />
@@ -266,7 +316,7 @@ const SplitBill = () => {
           <TextInput
             style={styles.input}
             placeholder="e.g., Dinner at ABC, Rent for May"
-            placeholderTextColor="#888"
+            placeholderTextColor="#A7B7B3"
             value={requestDescription}
             onChangeText={setRequestDescription}
           />
@@ -289,7 +339,7 @@ const SplitBill = () => {
           />
 
           <TouchableOpacity style={styles.addButton} onPress={addParticipant}>
-            <MaterialIcons name="person-add-alt-1" size={20} color="#FFFFFF" style={styles.addIcon} />
+            <MaterialIcons name="person-add-alt-1" size={22} color="#FFFFFF" style={styles.addIcon} />
             <Text style={styles.addText}>Add Person</Text>
           </TouchableOpacity>
 
@@ -299,25 +349,36 @@ const SplitBill = () => {
           {participants.map(p => (
             <View key={p.uid} style={styles.participantRow}>
               <Text style={styles.participantName}>{p.name}</Text>
-              <View style={styles.shareInfo}>
+              <View style={styles.shareInputContainer}>
                 <Text style={styles.shareCurrency}>₹</Text>
-                <Text style={styles.shareText}>{p.share.toFixed(2) || '0.00'}</Text>
+                <TextInput
+                  style={styles.shareTextInput}
+                  keyboardType="numeric"
+                  value={p.share.toFixed(2)}
+                  onChangeText={(text) => {
+                    const newText = text.replace(/[^0-9.]/g, '');
+                    if (newText.split('.').length > 2) return;
+                    if (newText.includes('.') && newText.split('.')[1]?.length > 2) return;
+                    handleShareChange(p.uid, newText);
+                  }}
+                  placeholder="0.00"
+                  placeholderTextColor="#A7B7B3"
+                />
               </View>
               <TouchableOpacity onPress={() => removeParticipant(p.uid)} style={styles.removeButton}>
-                <MaterialIcons name="close" size={20} color="#FF5252" />
+                <MaterialIcons name="close" size={24} color="#E57373" />
               </TouchableOpacity>
             </View>
           ))}
 
-          {/* Conditional buttons */}
-          {participants.length > 0 && !sharesCalculated && (
+          {participants.length > 0 && (
             <TouchableOpacity style={styles.calcButton} onPress={calculateEqualSharesLocally}>
-              <MaterialIcons name="calculate" size={20} color="#FFFFFF" style={styles.calcIcon} />
+              <MaterialIcons name="calculate" size={22} color="#FFFFFF" style={styles.calcIcon} />
               <Text style={styles.calcText}>Calculate Equal Share</Text>
             </TouchableOpacity>
           )}
 
-          {participants.length > 0 && sharesCalculated && (
+          {participants.length > 0 && (
             <TouchableOpacity
               style={[styles.sendRequestsButton, isSendingRequests && styles.sendRequestsButtonDisabled]}
               onPress={sendBillRequests}
@@ -327,7 +388,7 @@ const SplitBill = () => {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <MaterialIcons name="send" size={20} color="#FFFFFF" style={styles.sendIcon} />
+                  <MaterialIcons name="send" size={22} color="#FFFFFF" style={styles.sendIcon} />
                   <Text style={styles.sendText}>Send Bill Requests</Text>
                 </>
               )}
@@ -335,6 +396,32 @@ const SplitBill = () => {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Custom Alert Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showCustomModal}
+        onRequestClose={() => setShowCustomModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {modalType === 'success' && <MaterialIcons name="check-circle" size={40} color="#4CAF50" style={styles.modalIcon} />}
+            {modalType === 'error' && <MaterialIcons name="error" size={40} color="#FF5252" style={styles.modalIcon} />}
+            {modalType === 'info' && <MaterialIcons name="info" size={40} color="#2196F3" style={styles.modalIcon} />}
+            {modalType === 'warning' && <MaterialIcons name="warning" size={40} color="#FFAB00" style={styles.modalIcon} />}
+
+            <Text style={styles.modalTitle}>{modalTitle}</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowCustomModal(false)}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -342,51 +429,76 @@ const SplitBill = () => {
 const styles = StyleSheet.create({
   fullScreenContainer: {
     flex: 1,
-    backgroundColor: '#F0F2F5',
+    backgroundColor: '#E0F2F1',
   },
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F5',
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    backgroundColor: '#E0F2F1',
+    // Removed paddingHorizontal here, as headerContainer takes full width
+    paddingTop: 0,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F0F2F5',
+    backgroundColor: '#E0F2F1',
   },
   loadingText: {
-    color: '#666',
+    color: '#00695C',
     fontSize: 16,
     marginTop: 10,
   },
-  header: {
-    fontSize: 26,
-    color: '#333333',
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#009688',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    paddingTop: 45,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+    marginBottom: 20,
+  },
+  backButton: {
+    padding: 5,
+  },
+  headerTitle: {
+    fontSize: 22,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 30,
+    color: '#FFFFFF',
+  },
+  headerPlaceholder: {
+    width: 28,
   },
   scrollContent: {
+    paddingHorizontal: 20, // Content padding
     paddingBottom: 20,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333333',
+    color: '#004D40',
     marginBottom: 10,
-    marginTop: 15,
+    marginTop: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#B2DFDB',
+    paddingBottom: 5,
   },
   input: {
     backgroundColor: '#FFFFFF',
     paddingVertical: 14,
     paddingHorizontal: 15,
     borderRadius: 12,
-    color: '#333333',
+    color: '#004D40',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#B2DFDB',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -395,7 +507,7 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#E0E0E0',
+    borderColor: '#B2DFDB',
     borderRadius: 12,
     marginBottom: 15,
     shadowColor: '#000',
@@ -407,7 +519,7 @@ const styles = StyleSheet.create({
   },
   dropdownContainer: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#E0E0E0',
+    borderColor: '#B2DFDB',
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -416,21 +528,21 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   dropdownText: {
-    color: '#333333',
+    color: '#004D40',
     fontSize: 16,
   },
   dropdownPlaceholder: {
-    color: '#888',
+    color: '#A7B7B3',
   },
   addButton: {
     flexDirection: 'row',
-    backgroundColor: '#1A73E8',
+    backgroundColor: '#009688',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 25,
-    shadowColor: '#1A73E8',
+    shadowColor: '#009688',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -449,12 +561,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 14,
+    paddingVertical: 10,
     paddingHorizontal: 18,
     marginVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#EBF2FB',
+    borderColor: '#E0F2F1',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -462,40 +574,49 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   participantName: {
-    color: '#333333',
+    color: '#004D40',
     fontSize: 17,
     fontWeight: '500',
     flex: 1,
   },
-  shareInfo: {
+  shareInputContainer: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
     marginLeft: 10,
   },
   shareCurrency: {
-    color: '#4CAF50',
-    fontSize: 15,
+    color: '#00695C',
+    fontSize: 16,
     fontWeight: 'bold',
     marginRight: 2,
   },
-  shareText: {
-    color: '#4CAF50',
+  shareTextInput: {
+    color: '#004D40',
     fontWeight: 'bold',
-    fontSize: 18,
+    fontSize: 17,
+    padding: 0,
+    minWidth: 60,
+    textAlign: 'right',
   },
   removeButton: {
-    marginLeft: 15,
+    marginLeft: 10,
     padding: 5,
   },
   calcButton: {
     flexDirection: 'row',
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#009688',
     paddingVertical: 16,
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 40,
-    shadowColor: '#4CAF50',
+    marginTop: 30,
+    shadowColor: '#009688',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -511,20 +632,21 @@ const styles = StyleSheet.create({
   },
   sendRequestsButton: {
     flexDirection: 'row',
-    backgroundColor: '#1A73E8',
+    backgroundColor: '#009688',
     paddingVertical: 16,
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
-    shadowColor: '#1A73E8',
+    shadowColor: '#009688',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 8,
   },
   sendRequestsButtonDisabled: {
-    backgroundColor: '#B0B0B0',
+    backgroundColor: '#B2DFDB',
+    shadowColor: '#B2DFDB',
   },
   sendIcon: {
     marginRight: 10,
@@ -533,6 +655,62 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 19,
+  },
+  // Custom Modal Styles (refined for beautiful look)
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20, // Softer corners
+    padding: 30,
+    alignItems: 'center',
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 }, // More pronounced shadow
+    shadowOpacity: 0.25,
+    shadowRadius: 15, // Softer blur
+    elevation: 10,
+  },
+  modalIcon: {
+    marginBottom: 15,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#004D40', // Dark teal title
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#00695C', // Medium green message
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 25, // Pill shape
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '80%',
+    shadowColor: '#009688',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+    backgroundColor: '#009688', // Primary green button
+  },
+  modalButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

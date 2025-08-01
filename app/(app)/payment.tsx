@@ -1,5 +1,4 @@
-// Payment.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,14 +6,18 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
-  Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal, // Import Modal for custom alerts
+  TextInput, // Ensure TextInput is imported
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'; // Import RouteProp
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore'; // Import for Timestamp type
+import { router } from 'expo-router'; // Re-added for back navigation
+import { SafeAreaView } from 'react-native-safe-area-context'; // Correctly imported
+import LottieView from 'lottie-react-native'; // Import LottieView
 
 const { width } = Dimensions.get('window');
 
@@ -29,13 +32,39 @@ type PaymentRouteParams = {
 // Define the type for the route object
 type PaymentScreenRouteProp = RouteProp<{ Payment: PaymentRouteParams }, 'Payment'>;
 
+// Define RootStackParamList for navigation typing
+export type RootStackParamList = {
+  VerifyPin: { onSuccess?: () => void };
+  PaymentSuccess: {
+    amount: number;
+    recipientUsername: string;
+    selectedBank: { name: string; lastDigits: string };
+    billDescription?: string;
+  };
+  login: undefined;
+};
+
+// Helper function to generate a consistent color based on a string (e.g., UID or username)
+const getDeterministicColor = (str: string) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  let color = '#';
+  for (let i = 0; i < 3; i++) {
+    const value = (hash >> (i * 8)) & 0xFF;
+    color += ('00' + value.toString(16)).substr(-2);
+  }
+  return color;
+};
+
 const Payment = () => {
   const navigation = useNavigation();
-  const route = useRoute<PaymentScreenRouteProp>(); // Use RouteProp for type safety
-  const { recipientUid, amountToPay, billId, billDescription } = route.params ?? {}; // Destructure params with nullish coalescing
+  const route = useRoute<PaymentScreenRouteProp>();
+  const { recipientUid, amountToPay, billId, billDescription } = route.params ?? {};
 
   const [amount, setAmount] = useState('');
-  const [mybal, setMyBal] = useState<number | null>(null); // Explicitly type mybal
+  const [mybal, setMyBal] = useState<number | null>(null);
   const [recipientEmail, setRecipientEmail] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
@@ -44,39 +73,57 @@ const Payment = () => {
   const [isLoadingRecipient, setIsLoadingRecipient] = useState(true);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
+  // State for the custom modals
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalTitle, setModalTitle] = useState('');
+  const lottieRef = useRef<LottieView>(null);
+
+
   const currentUserUid = auth().currentUser?.uid;
 
-  // Effect to pre-fill amount if passed from PayRequest screen
+  const showCustomModal = (title: string, message: string, type: 'success' | 'error') => {
+    setModalTitle(title);
+    setModalMessage(message);
+    if (type === 'success') {
+      setShowSuccessModal(true);
+      lottieRef.current?.play();
+    } else {
+      setShowErrorModal(true);
+    }
+  };
+
   useEffect(() => {
     if (amountToPay) {
       setAmount(String(amountToPay));
+    } else {
+      setAmount('0');
     }
-  }, [amountToPay]); // Depend on amountToPay
+  }, [amountToPay]);
 
   const pay = async () => {
     if (!amount || Number(amount) <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount to pay.');
+      showCustomModal('Invalid Amount', 'Please enter a valid amount to pay.', 'error');
       return;
     }
 
     if (!recipientUid) {
-      Alert.alert('No Recipient', 'Cannot process payment without a recipient ID. Please go back and select a recipient.');
+      showCustomModal('No Recipient', 'Cannot process payment without a recipient ID. Please go back and select a recipient.', 'error');
       return;
     }
 
     if (currentUserUid === recipientUid) {
-      Alert.alert('Error', 'Cannot send money to yourself.');
+      showCustomModal('Error', 'Cannot send money to yourself.', 'error');
       return;
     }
 
     setIsProcessingPayment(true);
     const amountToPayNum = Number(amount);
-    // Generate a unique timestamp for the transaction key
     const transactionId = new Date().toISOString().replace(/[^0-9]/g, '');
 
     try {
       await firestore().runTransaction(async (transaction) => {
-        // Ensure currentUserUid is available before proceeding with transaction
         if (!currentUserUid) {
           throw new Error("Current user not authenticated for transaction.");
         }
@@ -93,11 +140,10 @@ const Payment = () => {
           throw new Error("Insufficient balance.");
         }
 
-        // Update sender's balance and add transaction to their map
         transaction.update(senderDocRef, {
           balance: firestore.FieldValue.increment(-amountToPayNum),
           [`transhistory.${transactionId}`]: {
-            amount: -amountToPayNum, // Store as negative for debit
+            amount: -amountToPayNum,
             type: 'debit',
             recipientUid: recipientUid,
             recipientName: recipientUsername || 'Unknown Recipient',
@@ -112,11 +158,10 @@ const Payment = () => {
           throw new Error("Recipient account not found for the provided ID.");
         }
 
-        // Update recipient's balance and add transaction to their map
         transaction.update(recipientDocRef, {
           balance: firestore.FieldValue.increment(amountToPayNum),
-          [`transhistory.${transactionId}`]: { // Use the same transactionId
-            amount: amountToPayNum, // Store as positive for credit
+          [`transhistory.${transactionId}`]: {
+            amount: amountToPayNum,
             type: 'credit',
             senderUid: currentUserUid,
             senderName: currentUsername || 'Unknown Sender',
@@ -124,46 +169,44 @@ const Payment = () => {
           },
         });
 
-        // --- Update Bill Request Status after successful payment ---
-        // This part is crucial for linking payment to bill requests
         if (billId && currentUserUid) {
           const recipientBillRequestDocRef = firestore().collection('users').doc(currentUserUid);
-          const senderBillRequestDocRef = firestore().collection('users').doc(recipientUid); // Recipient of payment is sender of bill request
+          const senderBillRequestDocRef = firestore().collection('users').doc(recipientUid);
 
-          // Update the current user's (the one who received the bill and is now paying it) bill request status to 'paid'
           transaction.update(recipientBillRequestDocRef, {
             [`request.${billId}.status`]: 'paid',
           });
           console.log(`Bill request ${billId} status updated to 'paid' for current user (${currentUserUid}).`);
 
-          // Update the sender's (of the bill request) record for this specific recipient to 'paid'
           transaction.update(senderBillRequestDocRef, {
             [`request.${billId}.recipients.${currentUserUid}.status`]: 'paid',
           });
           console.log(`Bill request ${billId} status updated to 'paid' for sender's (${recipientUid}) recipient record.`);
         }
-        // --- END Bill Request Update ---
       });
 
-      Alert.alert('Success', `Successfully paid ₹${formatAmount(amount)} to ${recipientUsername}.`);
+      // Show the custom success modal instead of native alert
+      showCustomModal('Success', `Successfully paid ₹${Number(amount).toFixed(2)} to ${recipientUsername}.`, 'success');
       setAmount('');
-      // Re-fetch current user's balance to reflect the change
       fetchCurrentUserDetails(currentUserUid);
-      navigation.goBack(); // Go back to PayRequest screen after successful payment
-
+      // navigation.goBack(); // Navigation will now be handled by the modal's onAnimationFinish
     } catch (error: any) {
       console.error("Error making payment: ", error);
-      Alert.alert('Payment Failed', error.message || 'There was an error processing your payment. Please try again.');
+      showCustomModal('Payment Failed', error.message || 'There was an error processing your payment. Please try again.', 'error');
     } finally {
       setIsProcessingPayment(false);
     }
   };
 
-  // Function to fetch current user's details
-  const fetchCurrentUserDetails = (uid: string | undefined) => {
+  const handleLottieAnimationFinish = () => {
+    setShowSuccessModal(false);
+    navigation.goBack();
+  };
+
+  const fetchCurrentUserDetails = useCallback((uid: string | undefined) => {
     if (!uid) {
       console.log('No current user UID provided to fetch data.');
-      return () => { }; // Return empty cleanup
+      return () => { };
     }
     const subscriber = firestore()
       .collection('users')
@@ -171,7 +214,7 @@ const Payment = () => {
       .onSnapshot(documentSnapshot => {
         if (documentSnapshot.exists()) {
           const data = documentSnapshot.data();
-          setMyBal(data?.balance || 0); // Use optional chaining for data
+          setMyBal(data?.balance || 0);
           setCurrentUserEmail(data?.email || 'N/A');
           setCurrentUsername(data?.username ? data.username.toUpperCase() : 'N/A');
         } else {
@@ -187,12 +230,11 @@ const Payment = () => {
         setCurrentUsername(null);
       });
     return subscriber;
-  };
+  }, []);
 
-  // Effect to fetch recipient details when recipientUid is available
   useEffect(() => {
-    const fetchRecipientDetails = async (uid: string) => { // uid is guaranteed to be string here
-      setIsLoadingRecipient(true); // Start loading
+    const fetchRecipientDetails = async (uid: string) => {
+      setIsLoadingRecipient(true);
       try {
         const recipientDoc = await firestore().collection('users').doc(uid).get();
 
@@ -202,246 +244,313 @@ const Payment = () => {
           setRecipientEmail(recipientData?.email || 'N/A');
           console.log("Recipient details fetched:", recipientData);
         } else {
-          Alert.alert("Recipient Not Found", "The provided ID does not match a known user.");
+          showCustomModal("Recipient Not Found", "The provided ID does not match a known user.", 'error');
           setRecipientUsername('Unknown User');
           setRecipientEmail('N/A');
         }
       } catch (error) {
         console.error("Error fetching recipient details:", error);
-        Alert.alert("Error", "Could not fetch recipient details. Please check your network.");
+        showCustomModal("Error", "Could not fetch recipient details. Please check your network.", 'error');
         setRecipientUsername('Error');
         setRecipientEmail('Error');
       } finally {
-        setIsLoadingRecipient(false); // End loading
+        setIsLoadingRecipient(false);
       }
     };
 
     if (recipientUid) {
       fetchRecipientDetails(recipientUid);
     } else {
-      // If no recipient UID, set default states and stop loading
       setRecipientUsername('Scan QR / Select Recipient');
       setRecipientEmail('N/A');
       setIsLoadingRecipient(false);
     }
-  }, [recipientUid]); // Rerun this effect if recipientUid changes
+  }, [recipientUid]);
 
-  // Effect to fetch current user's balance on component mount (and setup listener)
   useEffect(() => {
     if (currentUserUid) {
       const subscriber = fetchCurrentUserDetails(currentUserUid);
-      return () => subscriber(); // Cleanup subscription
+      return () => subscriber();
     }
-  }, [currentUserUid]); // Depend on currentUserUid
-
-  const handleKeyPress = (key: string) => {
-    // Prevent multiple decimal points
-    if (key === '.' && amount.includes('.')) {
-      return;
-    }
-    // Limit to two decimal places
-    if (amount.includes('.') && amount.split('.')[1]?.length >= 2 && key !== 'backspace') {
-      return;
-    }
-
-    if (key === 'backspace') {
-      setAmount(amount.slice(0, -1));
-    } else {
-      setAmount(amount + key);
-    }
-  };
+  }, [currentUserUid, fetchCurrentUserDetails]);
 
   const formatAmount = (input: string) => {
     if (!input) return '0';
-    let formatted = input.replace(/^0+(?=\d)/, ''); // Remove leading zeros unless it's just '0'
+    let formatted = input.replace(/^0+(?=\d)/, '');
     if (formatted === '') formatted = '0';
-    if (formatted === '.') formatted = '0.'; // Handle case where user types '.' first
+    if (formatted === '.') formatted = '0.';
     const parts = formatted.split('.');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ','); // Add thousands separator
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     return parts.join('.');
   };
 
-  const KeypadButton = ({ value }: { value: string }) => (
-    <TouchableOpacity style={styles.keypadButton} onPress={() => handleKeyPress(value)}>
-      {value === 'backspace' ? (
-        <MaterialIcons name="backspace" size={24} color="#E0E0E0" />
-      ) : value === 'image' ? ( // This 'image' case seems unused in your current keypad
-        <MaterialIcons name="qr-code-scanner" size={24} color="#E0E0E0" />
-      ) : (
-        <Text style={styles.keypadButtonText}>{value}</Text>
-      )}
-    </TouchableOpacity>
-  );
+  const recipientInitials = recipientUsername ? recipientUsername.charAt(0).toUpperCase() : '';
+  const recipientIconColor = getDeterministicColor(recipientUid || recipientUsername || 'default');
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color="#E0E0E0" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={28} color="#FFF" />
         </TouchableOpacity>
-        <TouchableOpacity>
-          <MaterialIcons name="more-vert" size={24} color="#E0E0E0" />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Send Money</Text>
+        <View style={{ width: 28 }} />
       </View>
 
-      {/* Recipient Info */}
-      <View style={styles.recipientContainer}>
-        <Image
-          source={{ uri: 'https://via.placeholder.com/50' }} // Placeholder for profile pic
-          style={styles.recipientAvatar}
-        />
-        <View style={styles.recipientDetails}>
+      <View style={styles.contentArea}>
+        <View style={styles.recipientContainer}>
           {isLoadingRecipient ? (
-            <ActivityIndicator size="small" color="#E0E0E0" />
+            <ActivityIndicator size="small" color="#009688" style={styles.recipientAvatar} />
           ) : (
-            <Text style={styles.recipientName}>{recipientUsername || 'Recipient N/A'}</Text>
+            <View style={[styles.recipientAvatar, { backgroundColor: recipientIconColor + '33' }]}>
+              {recipientInitials ? (
+                <Text style={[styles.recipientInitials, { color: recipientIconColor }]}>{recipientInitials}</Text>
+              ) : (
+                <MaterialIcons name="person" size={30} color={recipientIconColor} />
+              )}
+            </View>
           )}
-          <View style={styles.recipientSubInfo}>
-            <MaterialIcons name="check-circle" size={14} color="#4CAF50" style={{ marginRight: 5 }} />
-            <Text style={styles.recipientPhone}>{recipientEmail || 'N/A'}</Text>
+          <View style={styles.recipientDetails}>
+            {isLoadingRecipient ? (
+              <ActivityIndicator size="small" color="#009688" />
+            ) : (
+              <Text style={styles.recipientName}>{recipientUsername || 'Recipient N/A'}</Text>
+            )}
+            <View style={styles.recipientSubInfo}>
+              <MaterialIcons name="check-circle" size={14} color="#4CAF50" style={{ marginRight: 5 }} />
+              <Text style={styles.recipientStatusText}>Verified UPI ID</Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Amount Display */}
-      <View style={styles.amountContainer}>
-        <Text style={styles.currencySymbol}>₹</Text>
-        <Text style={styles.amountText}>{formatAmount(amount) || '0'}</Text>
-      </View>
-
-      {/* Bank Selection */}
-      <View style={styles.bankSelectionWrapper}>
-        <View style={styles.bankSelectionContainer}>
-          <MaterialIcons name="account-balance" size={24} color="#E0E0E0" style={{ marginRight: 10 }} />
-          <View style={styles.bankInfo}>
-            <Text style={styles.bankName}>{selectedBank.name}</Text>
-            <Text style={styles.bankAccount}>xx{selectedBank.lastDigits}</Text>
-            <Text style={styles.bankBalance}>Your Balance: {mybal !== null ? `₹${mybal.toFixed(2)}` : '...'}</Text>
-          </View>
-          <MaterialIcons name="keyboard-arrow-down" size={24} color="#B0B0B0" style={{ marginLeft: 'auto' }} />
+        <View style={styles.amountInputSection}>
+          <Text style={styles.currencySymbol}>₹</Text>
+          <TextInput
+            style={styles.amountTextInput}
+            value={amount}
+            onChangeText={(text) => {
+              const newText = text.replace(/[^0-9.]/g, '');
+              if (newText.split('.').length > 2) {
+                return;
+              }
+              if (newText.includes('.') && newText.split('.')[1]?.length > 2) {
+                return;
+              }
+              setAmount(newText);
+            }}
+            keyboardType="numeric"
+            editable={true}
+            placeholder="0"
+            placeholderTextColor="#A7B7B3"
+            caretHidden={false}
+          />
         </View>
-        {/* Next Button / Pay Button */}
+        {billDescription && (
+          <Text style={styles.billDescriptionText}>For: {billDescription}</Text>
+        )}
+
+        <TouchableOpacity style={styles.bankSelectionWrapper}>
+          <View style={styles.bankSelectionContainer}>
+            <MaterialIcons name="account-balance" size={24} color="#009688" style={{ marginRight: 10 }} />
+            <View style={styles.bankInfo}>
+              <Text style={styles.bankName}>{selectedBank.name}</Text>
+              <Text style={styles.bankAccount}>A/c No. XX{selectedBank.lastDigits}</Text>
+              <Text style={styles.bankBalance}>Balance: {mybal !== null ? `₹${mybal.toFixed(2)}` : 'Fetching...'}</Text>
+            </View>
+            <MaterialIcons name="keyboard-arrow-down" size={24} color="#78909C" style={{ marginLeft: 'auto' }} />
+          </View>
+        </TouchableOpacity>
+
+        <View style={{ flex: 1 }} /> 
+
         <TouchableOpacity
-          style={styles.nextButton}
-          onPress={() => {
-            // Pass the `pay` function as a callback to `VerifyPin`
-            navigation.navigate('verifyPin', { onSuccess: pay });
-          }}
-          disabled={isLoadingRecipient || isProcessingPayment || !recipientUid || Number(amount) <= 0} // Disable if no recipient or zero amount
+          style={[styles.payButton, (isLoadingRecipient || isProcessingPayment || !recipientUid || Number(amount) <= 0) && styles.payButtonDisabled]}
+          onPress={() => navigation.navigate('VerifyPin', { onSuccess: pay })}
+          disabled={isLoadingRecipient || isProcessingPayment || !recipientUid || Number(amount) <= 0}
         >
           {isProcessingPayment ? (
-            <ActivityIndicator size="small" color="#000" />
+            <ActivityIndicator size="small" color="#FFF" />
           ) : (
-            <MaterialIcons name="arrow-forward" size={28} color="#000" />
+            <>
+              <MaterialIcons name="arrow-forward" size={28} color="#FFF" />
+              <Text style={styles.payButtonText}>Pay {amount ? `₹${Number(amount).toFixed(2)}` : ''}</Text>
+            </>
           )}
         </TouchableOpacity>
       </View>
 
-      {/* Keypad */}
-      <View style={styles.keypad}>
-        <View style={styles.keypadRow}>
-          <KeypadButton value="1" />
-          <KeypadButton value="2" />
-          <KeypadButton value="3" />
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showSuccessModal}
+        onRequestClose={handleLottieAnimationFinish}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <LottieView
+              ref={lottieRef}
+              source={require('../../assets/Lottie Lego.json')}
+              autoPlay={false}
+              loop={false}
+              style={styles.lottieAnimation}
+              onAnimationFinish={handleLottieAnimationFinish}
+            />
+            <Text style={styles.modalTitle}>{modalTitle}</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleLottieAnimationFinish}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.keypadRow}>
-          <KeypadButton value="4" />
-          <KeypadButton value="5" />
-          <KeypadButton value="6" />
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showErrorModal}
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <MaterialIcons name="error" size={40} color="#FF5252" style={styles.modalIcon} />
+            <Text style={styles.modalTitle}>{modalTitle}</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalErrorButton]}
+              onPress={() => setShowErrorModal(false)}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.keypadRow}>
-          <KeypadButton value="7" />
-          <KeypadButton value="8" />
-          <KeypadButton value="9" />
-        </View>
-        <View style={styles.keypadRow}>
-          <KeypadButton value="." />
-          <KeypadButton value="0" />
-          <KeypadButton value="backspace" />
-        </View>
-      </View>
-    </View>
+      </Modal>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F5', // Light background color for the screen (PayZapp theme)
-    paddingHorizontal: 16,
-    paddingTop: 32,
+    backgroundColor: '#E0F2F1',
   },
-
-  // Header
+  contentArea: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#009688',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    paddingTop: Platform.OS === 'android' ? 40 : 15,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
     marginBottom: 20,
   },
-
-  // Recipient
+  backButton: {
+    padding: 5,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
   recipientContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF', // White card background
-    borderRadius: 14,
-    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 15,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#B2DFDB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 5,
   },
   recipientAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#EBF2FB', // Light blue for avatar background
-    marginRight: 12,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  recipientInitials: {
+    fontSize: 22,
+    fontWeight: 'bold',
   },
   recipientDetails: {
     flex: 1,
   },
   recipientName: {
-    color: '#333333', // Dark text on light background
-    fontSize: 16,
+    color: '#004D40',
+    fontSize: 18,
     fontWeight: '600',
   },
   recipientSubInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: 4,
   },
-  recipientPhone: {
-    color: '#666666', // Medium grey text
-    fontSize: 12,
+  recipientStatusText: {
+    color: '#00695C',
+    fontSize: 13,
   },
-
-  // Amount
-  amountContainer: {
+  amountInputSection: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'flex-end',
     marginBottom: 24,
+    paddingHorizontal: 10,
   },
   currencySymbol: {
-    fontSize: 32,
-    color: '#1A73E8', // PayZapp blue accent
+    fontSize: 36,
+    color: '#009688',
     fontWeight: 'bold',
-    marginRight: 4,
+    marginRight: 8,
   },
-  amountText: {
-    fontSize: 48,
-    color: '#333333', // Dark text
+  amountTextInput: {
+    fontSize: 56,
+    color: '#004D40',
     fontWeight: 'bold',
+    padding: 0,
+    minWidth: 100,
+    textAlign: 'center',
   },
-
-  // Bank
+  billDescriptionText: {
+    fontSize: 15,
+    color: '#00695C',
+    textAlign: 'center',
+    marginBottom: 20,
+    fontStyle: 'italic',
+  },
   bankSelectionWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF', // White card background
-    borderRadius: 16,
-    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 15,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#B2DFDB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 5,
   },
   bankSelectionContainer: {
     flexDirection: 'row',
@@ -452,53 +561,107 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   bankName: {
-    color: '#333333', // Dark text
-    fontSize: 14,
+    color: '#004D40',
+    fontSize: 16,
     fontWeight: '600',
   },
   bankAccount: {
-    color: '#666666', // Medium grey text
-    fontSize: 12,
+    color: '#00695C',
+    fontSize: 13,
   },
   bankBalance: {
-    color: '#1A73E8', // PayZapp blue accent
-    fontSize: 12,
+    color: '#009688',
+    fontSize: 13,
     fontWeight: '500',
   },
-  nextButton: {
-    backgroundColor: '#1A73E8', // PayZapp blue accent
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
+  payButton: {
+    flexDirection: 'row',
+    backgroundColor: '#009688',
+    paddingVertical: 16,
+    borderRadius: 30,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    marginBottom: 10,
+    shadowColor: '#009688',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  payButtonText: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: 'bold',
     marginLeft: 10,
   },
-
-  // Keypad
-  keypad: {
-    marginTop: 'auto',
-    paddingBottom: 12,
-    backgroundColor: '#F0F2F5', // Match screen background
+  payButtonDisabled: {
+    backgroundColor: '#B2DFDB',
+    shadowColor: '#B2DFDB',
   },
-  keypadRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingHorizontal: 10,
-  },
-  keypadButton: {
-    width: width / 4.2,
-    height: width / 4.2,
-    backgroundColor: '#FFFFFF', // White keypad buttons
+  modalOverlay: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
-  keypadButtonText: {
-    color: '#333333', // Dark text for numbers
-    fontSize: 28,
-    fontWeight: '600',
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 15,
+  },
+  modalIcon: {
+    marginBottom: 15,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#004D40',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#00695C',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '80%',
+    shadowColor: '#009688',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+    backgroundColor: '#009688',
+  },
+  modalButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalErrorButton: {
+    backgroundColor: '#FF5252',
+    shadowColor: '#FF5252',
+  },
+  lottieAnimation: {
+    width: 120,
+    height: 120,
+    marginBottom: 15,
   },
 });
 

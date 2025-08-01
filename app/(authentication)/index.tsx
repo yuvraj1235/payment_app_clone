@@ -6,29 +6,29 @@ import {
   TextInput,
   StyleSheet,
   Alert,
-  Image, // Keep Image import if you plan to use a logo
+  Image,
   ActivityIndicator,
-  StatusBar, // For status bar styling
-  Dimensions // For responsive sizing if needed
+  StatusBar,
+  Dimensions
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
-import { useNavigation } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import AntDesignIcon from 'react-native-vector-icons/AntDesign';
-import Google from './Google'; // Assuming Google component exists and is imported correctly elsewhere
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons'; // Added for consistent icons
+import Google from './Google'; // Assuming Google component exists
 
 const { width, height } = Dimensions.get('window');
 
-const Index = () => { // Renamed from 'index' to 'Index' for component naming convention
+const Index = () => {
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Set status bar style for the light theme
   useEffect(() => {
-    StatusBar.setBarStyle('dark-content', true); // Dark icons on light background
-    return () => StatusBar.setBarStyle('default', true); // Reset on unmount
+    StatusBar.setBarStyle('light-content', true); // Light icons on dark background
+    return () => StatusBar.setBarStyle('default', true);
   }, []);
 
   const loginUser = async () => {
@@ -43,7 +43,7 @@ const Index = () => { // Renamed from 'index' to 'Index' for component naming co
       Alert.alert('Success', 'Logged in successfully!');
       console.log('User logged in:', response.user.email);
       // Navigate to your main app screen upon successful login
-      // Example: navigation.navigate('Home'); // Replace 'Home' with your actual home route
+      router.replace('/(tabs)'); // Example navigation to a main screen
     } catch (error) {
       console.error('Email/Password Login Error:', error);
       let errorMessage = 'An unexpected error occurred. Please try again.';
@@ -71,26 +71,23 @@ const Index = () => { // Renamed from 'index' to 'Index' for component naming co
 
   return (
     <View style={styles.container}>
-      {/* Top Blue Header Section */}
       <View style={styles.topHeaderBackground}>
-        {/* Placeholder for the welcome checkmark or logo */}
         <View style={styles.welcomeIconCircle}>
-          <AntDesignIcon name="check" size={50} color="#FFFFFF" />
+          <MaterialIcons name="check" size={50} color="#FFFFFF" />
         </View>
-        <Text style={styles.welcomeText}>WELCOME!!</Text>
+        <Text style={styles.welcomeText}>WELCOME BACK!</Text>
       </View>
 
-      {/* Main Content Card */}
       <View style={styles.contentCard}>
         {loading && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#007BFF" />
+            <ActivityIndicator size="large" color="#009688" />
             <Text style={styles.loadingText}>Authenticating...</Text>
           </View>
         )}
 
         <View style={styles.inputGroup}>
-          <AntDesignIcon name="user" size={20} color="#6C757D" style={styles.inputIcon} />
+          <MaterialIcons name="email" size={20} color="#00695C" style={styles.inputIcon} />
           <TextInput
             style={styles.inputBox}
             placeholder="Username / Email"
@@ -98,27 +95,27 @@ const Index = () => { // Renamed from 'index' to 'Index' for component naming co
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
-            placeholderTextColor="#ADB5BD"
+            placeholderTextColor="#A7B7B3"
             editable={!loading}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <AntDesignIcon name="lock" size={20} color="#6C757D" style={styles.inputIcon} />
+          <MaterialIcons name="lock" size={20} color="#00695C" style={styles.inputIcon} />
           <TextInput
             style={styles.passwordInput}
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
-            placeholderTextColor="#ADB5BD"
+            placeholderTextColor="#A7B7B3"
             editable={!loading}
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={loading} style={styles.eyeIconContainer}>
-            <AntDesignIcon
-              name={showPassword ? 'eye' : 'eyeo'}
+            <MaterialIcons
+              name={showPassword ? 'visibility-off' : 'visibility'}
               size={20}
-              color="#ADB5BD"
+              color="#A7B7B3"
             />
           </TouchableOpacity>
         </View>
@@ -131,14 +128,17 @@ const Index = () => { // Renamed from 'index' to 'Index' for component naming co
           <Text style={styles.loginButtonText}>Login</Text>
         </TouchableOpacity>
 
-        {/* Don't have an account / Register */}
-        <TouchableOpacity onPress={() => navigation.navigate('SignIn')} disabled={loading} style={styles.registerPrompt}>
+        <View style={styles.orContainer}>
+          <View style={styles.line} />
+          <Text style={styles.orText}>OR</Text>
+          <View style={styles.line} />
+        </View>
+
+        <TouchableOpacity onPress={() => router.push('/signIn')} disabled={loading} style={styles.registerPrompt}>
           <Text style={styles.registerPromptText}>Don't have an account?</Text>
           <Text style={styles.registerLink}>Register</Text>
         </TouchableOpacity>
 
-        {/* Google Login Button (uncommented and added) */}
-        {/* You'll need to ensure the './Google' component is correctly implemented and styled */}
         <View style={styles.googleButtonContainer}>
           <Google />
         </View>
@@ -150,20 +150,20 @@ const Index = () => { // Renamed from 'index' to 'Index' for component naming co
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#007BFF', // Background blue
+    backgroundColor: '#009688',
   },
   topHeaderBackground: {
-    backgroundColor: '#007BFF', // Consistent blue
-    height: height * 0.35, // Adjust height as per design image
+    backgroundColor: '#009688',
+    height: height * 0.35,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 50, // Space for status bar
+    paddingTop: 50,
   },
   welcomeIconCircle: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.2)', // Semi-transparent white circle
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
@@ -175,28 +175,29 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   contentCard: {
-    backgroundColor: '#FFFFFF', // White card background
-    borderRadius: 30, // Large border radius for the card
+    backgroundColor: '#FFFFFF',
+    borderRadius: 30,
     padding: 30,
-    marginHorizontal: 20, // Horizontal margin for the card
-    // marginTop: -70, // Overlap with the top blue section
+    marginHorizontal: 20,
+    marginTop: -40, // Create overlap
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 15,
-    position: 'relative', // For loading overlay positioning
+    position: 'relative',
+    minHeight: height * 0.6, // Ensures the card is a minimum size
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Semi-transparent white overlay
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 30, // Match parent card radius
+    borderRadius: 30,
     zIndex: 10,
   },
   loadingText: {
-    color: '#007BFF',
+    color: '#009688',
     marginTop: 10,
     fontSize: 16,
     fontWeight: '600',
@@ -204,21 +205,21 @@ const styles = StyleSheet.create({
   inputGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA', // Very light grey background for input fields
-    borderRadius: 12, // Rounded input fields
-    marginBottom: 15, // Space between input groups
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    marginBottom: 15,
     paddingHorizontal: 15,
-    height: 55, // Fixed height for input fields
+    height: 55,
     borderWidth: 1,
-    borderColor: '#E9ECEF', // Light border
+    borderColor: '#E0E0E0', // Lighter grey for border
   },
   inputIcon: {
     marginRight: 10,
   },
   inputBox: {
-    flex: 1, // Take remaining space
+    flex: 1,
     fontSize: 16,
-    color: '#343A40', // Dark text color
+    color: '#343A40',
   },
   passwordInput: {
     flex: 1,
@@ -227,32 +228,48 @@ const styles = StyleSheet.create({
   },
   eyeIconContainer: {
     paddingLeft: 10,
-    paddingVertical: 5, // Make touch target larger
+    paddingVertical: 5,
   },
   forgotPasswordText: {
-    color: '#007BFF', // Blue text for "Forgot Password"
+    color: '#00695C', // Themed green
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'right',
-    marginBottom: 25, // Space below it
+    marginBottom: 25,
   },
   loginButton: {
-    backgroundColor: '#007BFF', // Blue button
+    backgroundColor: '#009688', // Themed green
     paddingVertical: 15,
-    borderRadius: 12, // Rounded button
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#007BFF', // Blue shadow
+    shadowColor: '#009688',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 15,
     elevation: 10,
-    marginBottom: 25, // Space below button
+    marginBottom: 25,
   },
   loginButtonText: {
-    color: '#FFFFFF', // White text
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  orContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 25,
+  },
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E0E0E0',
+  },
+  orText: {
+    marginHorizontal: 10,
+    color: '#A7B7B3', // Muted green/grey color
+    fontSize: 14,
   },
   registerPrompt: {
     flexDirection: 'row',
@@ -260,35 +277,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   registerPromptText: {
-    color: '#6C757D', // Softer grey text
+    color: '#6C757D',
     fontSize: 15,
     marginRight: 5,
   },
   registerLink: {
-    color: '#007BFF', // Blue link
+    color: '#009688', // Themed green
     fontSize: 15,
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
   googleButtonContainer: {
-    marginTop: 20, // Space above Google button
-    // The Google component itself would define its own styling
-  },
-  bottomNavArrow: {
-    backgroundColor: '#007BFF', // Blue background for arrow
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'absolute',
-    bottom: 30, // Position from bottom
-    right: 30, // Position from right
-    shadowColor: '#007BFF',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 15,
-    elevation: 12,
+    marginTop: 20,
   },
 });
 

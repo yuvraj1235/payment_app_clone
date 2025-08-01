@@ -12,6 +12,7 @@ import {
   Dimensions // For responsive sizing if needed
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
+import { router } from 'expo-router';
 import { useNavigation } from 'expo-router';
 import AntDesignIcon from 'react-native-vector-icons/AntDesign';
 import Google from './Google'; // Assuming Google component exists and is imported correctly elsewhere
@@ -132,7 +133,7 @@ const Index = () => { // Renamed from 'index' to 'Index' for component naming co
         </TouchableOpacity>
 
         {/* Don't have an account / Register */}
-        <TouchableOpacity onPress={() => navigation.navigate('SignIn')} disabled={loading} style={styles.registerPrompt}>
+        <TouchableOpacity onPress={() => router.push('/signIn')} disabled={loading} style={styles.registerPrompt}>
           <Text style={styles.registerPromptText}>Don't have an account?</Text>
           <Text style={styles.registerLink}>Register</Text>
         </TouchableOpacity>
