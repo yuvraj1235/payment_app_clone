@@ -119,7 +119,7 @@ const Camera = () => {
           {/* Header Overlay */}
           <View style={styles.headerOverlay}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
-              <MaterialIcons name="arrow-back" size={28} color="#FFF" />
+              <MaterialIcons name="arrow-back" size={28} color="#004D40" />
             </TouchableOpacity>
             <Text style={styles.title}>Scan QR Code</Text>
             {/* Placeholder for alignment or future action */}

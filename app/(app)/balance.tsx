@@ -129,7 +129,7 @@ const BalanceScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.fullScreenContainer}>
+    //<SafeAreaView style={styles.fullScreenContainer}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
@@ -139,7 +139,7 @@ const BalanceScreen = () => {
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={28} color="#FFF" />
+            <MaterialIcons name="arrow-back" size={28} color="#004D40" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Balance</Text>
           <View style={{ width: 28 }} />
@@ -214,7 +214,7 @@ const BalanceScreen = () => {
         </View>
 
       </ScrollView>
-    </SafeAreaView>
+    //</SafeAreaView>
   );
 };
 
@@ -223,14 +223,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#E0F2F1',
   },
-  container: {
-    flex: 1,
-    backgroundColor: '#E0F2F1',
-    paddingHorizontal: 20,
-    paddingTop: 0,
-  },
+  container: { flex: 1, backgroundColor: '#E0F2F1' },
   scrollContent: {
     paddingBottom: 30,
+    
   },
   loadingContainer: {
     flex: 1,
@@ -245,22 +241,21 @@ const styles = StyleSheet.create({
   },
   // Header styles (consistent with other themed screens)
   header: {
-
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#009688', // Primary green
+    justifyContent: 'space-between',
+    backgroundColor: '#009688', // Darker Teal from Home banner
     paddingHorizontal: 15,
     paddingVertical: 15,
     paddingTop: 45, // To account for SafeAreaView and status bar
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 8,
-    marginBottom: 20,
+    marginBottom: 20, // Add margin below header
   },
   backButton: {
     padding: 5,
@@ -271,6 +266,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   balanceCard: {
+    margin:30,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 30,
@@ -285,6 +281,7 @@ const styles = StyleSheet.create({
     borderColor: '#B2DFDB',
   },
   cardGreeting: {
+    
     fontSize: 18,
     color: '#00695C',
     marginBottom: 5,
@@ -318,6 +315,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   sectionTitle: {
+    margin:20,
     fontSize: 20,
     fontWeight: '700',
     color: '#004D40',
@@ -366,6 +364,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   recentTransactionsContainer: {
+    margin:20,
     backgroundColor: '#FFFFFF',
     borderRadius: 15,
     padding: 15,
@@ -426,6 +425,7 @@ const styles = StyleSheet.create({
     color: '#827717',
   },
   infoBox: {
+    margin:20,
     flexDirection: 'row',
     backgroundColor: '#E0F7FA',
     borderRadius: 10,

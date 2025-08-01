@@ -384,16 +384,16 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   // Header styles (consistent with MyQRCode.tsx)
-  header: {
+   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#009688', // Darker Teal from Home banner
     paddingHorizontal: 15,
     paddingVertical: 15,
-    paddingTop: 45, // To account for SafeAreaView and status bar
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    paddingTop: 30, // To account for SafeAreaView and status bar
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,

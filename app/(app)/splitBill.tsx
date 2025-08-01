@@ -289,7 +289,7 @@ const SplitBill = () => {
       >
         <View style={styles.headerContainer}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={28} color="#FFFFFF" />
+            <MaterialIcons name="arrow-back" size={28} color="#004D40" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>💸 Split a Bill</Text>
           <View style={styles.headerPlaceholder} />
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#009688',
     paddingHorizontal: 15,
     paddingVertical: 15,
-    paddingTop: 45,
+    paddingTop: 30,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     shadowColor: '#000',

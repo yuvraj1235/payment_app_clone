@@ -128,7 +128,7 @@ const Contacts = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={28} color="#FFF" />
+          <MaterialIcons name="arrow-back" size={28} color="#004D40" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>All Contacts</Text>
         <View style={{ width: 28 }} /> {/* Placeholder for alignment */}

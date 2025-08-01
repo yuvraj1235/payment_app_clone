@@ -278,19 +278,22 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E0F2F1' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#E0F2F1' },
   loadingText: { color: '#00695C', marginTop: 10, fontSize: 16 },
-  header: {
-    marginTop:30,
+   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#009688', // Darker Teal from Home banner
     paddingHorizontal: 15,
     paddingVertical: 15,
-    backgroundColor: '#009688',
+    paddingTop: 45, // To account for SafeAreaView and status bar
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 8,
+    marginBottom: 20, // Add margin below header
   },
   headerIcon: { padding: 5 },
   headerTitle: { fontSize: 18, fontWeight: '600', color: '#FFFFFF' },
