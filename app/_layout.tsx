@@ -8,7 +8,7 @@ import 'react-native-get-random-values'; // Required for some Firebase/UUID func
 // Configure Google Sign-In with your webClientId
 // Ensure process.env.EXPO_PUBLIC_WEB_CLIENT_ID is correctly set in your .env file
 GoogleSignin.configure({
-  webClientId: '117652753991-ft7ta0356tqh9snqjcpuig2kb51r3cbv.apps.googleusercontent.com',
+  webClientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID,
 });
 
 export default function RootLayout() {

@@ -20,9 +20,6 @@ import firestore from '@react-native-firebase/firestore';
 
 import RazorpayCheckout from 'react-native-razorpay';
 
-const RAZORPAY_KEY_ID = 'rzp_test_wGFrV7EdjuGMfq';
-
-const DUMMY_ORDER_ID = 'order_dummy_id_12345';
 
 const AddMoneyScreen = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -136,7 +133,7 @@ const AddMoneyScreen = () => {
       description: 'Adding money to wallet',
       image: 'https://example.com/your-app-logo.png',
       currency: 'INR',
-      key: RAZORPAY_KEY_ID,
+      key: process.env.EXPO_RAZORPAY_KEY_ID,
       amount: parsedAmount * 100,
       name: 'PayZap',
       prefill: {

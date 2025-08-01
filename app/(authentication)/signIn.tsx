@@ -60,7 +60,7 @@ const SignIn = () => {
         Alert.alert('Success', 'Account created successfully! You can now log in.');
         console.log('User data saved/merged!');
         setLoading(false);
-        router.push('/(authentication)/login');
+        router.push('/(authentication)/index');
       })
       .catch(error => {
         setLoading(false);
@@ -87,9 +87,6 @@ const SignIn = () => {
     <SafeAreaView style={styles.fullScreenContainer}>
       <View style={styles.topHeaderBackground}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={28} color="#FFF" />
-          </TouchableOpacity>
           <View style={{ width: 28 }} />
         </View>
         <View style={styles.registerIconCircle}>
@@ -166,11 +163,7 @@ const SignIn = () => {
           <View style={styles.line} />
         </View>
 
-        <View style={styles.googleButtonContainer}>
-          <Google />
-        </View>
-
-        <TouchableOpacity onPress={() => router.push('/(authentication)/login')} disabled={loading} style={styles.loginPrompt}>
+        <TouchableOpacity onPress={() => router.push('/index')} disabled={loading} style={styles.loginPrompt}>
           <Text style={styles.loginPromptText}>Already have an account?</Text>
           <Text style={styles.loginLink}>Log in</Text>
         </TouchableOpacity>
@@ -198,7 +191,7 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 20,
     position: 'absolute',
-    top: Platform.OS === 'android' ? 10 : 50, // Adjusted for better placement on Android
+    top: Platform.OS === 'android' ? 10 : 50,
   },
   backButton: {
     padding: 5,
@@ -219,19 +212,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   contentCard: {
+
     backgroundColor: '#FFFFFF',
     borderRadius: 30,
     padding: 30,
     marginHorizontal: 20,
-    marginTop: -70,
+    marginTop: -50,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 15,
     position: 'relative',
-    minHeight: height * 0.7,
-  },
+     },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
@@ -315,14 +308,11 @@ const styles = StyleSheet.create({
     color: '#A7B7B3',
     fontSize: 14,
   },
-  googleButtonContainer: {
-    marginTop: 20,
-  },
   loginPrompt: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 15,
+    // marginTop: 15,
   },
   loginPromptText: {
     color: '#6C757D',

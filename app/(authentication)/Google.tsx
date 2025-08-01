@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  TextInput, // Not used in this component, can be removed if not needed
   StyleSheet,
   Alert,
   Image,
@@ -11,12 +10,12 @@ import {
 } from 'react-native';
 
 import auth from '@react-native-firebase/auth';
-import { useNavigation } from 'expo-router'; // CORRECTED: Import useNavigation from expo-router
+import { useNavigation } from 'expo-router'; 
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin'; // CORRECTED: Import statusCodes
 import firestore from '@react-native-firebase/firestore';
 
 GoogleSignin.configure({
-  webClientId: '117652753991-ft7ta0356tqh9snqjcpuig2kb51r3cbv.apps.googleusercontent.com',
+  webClientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID,
 });
 const Google = () => {
   const resetGoogleSession = async () => {

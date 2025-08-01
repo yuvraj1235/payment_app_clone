@@ -365,7 +365,7 @@ const Payment = () => {
 
         <TouchableOpacity
           style={[styles.payButton, (isLoadingRecipient || isProcessingPayment || !recipientUid || Number(amount) <= 0) && styles.payButtonDisabled]}
-          onPress={() => navigation.navigate('VerifyPin', { onSuccess: pay })}
+          onPress={() => navigation.navigate('verifyPin', { onSuccess: pay })}
           disabled={isLoadingRecipient || isProcessingPayment || !recipientUid || Number(amount) <= 0}
         >
           {isProcessingPayment ? (
